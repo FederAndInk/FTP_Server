@@ -1,6 +1,3 @@
-/*
- * echoclient.c - An echo client
- */
 #include "csapp.h"
 #include "ftp_com.h"
 
@@ -22,17 +19,17 @@ int main(int argc, char** argv)
   port = atoi(argv[2]);
 
   /*
-     * Note that the 'host' can be a name or an IP address.
-     * If necessary, Open_clientfd will perform the name resolution
-     * to obtain the IP address.
-     */
+   * Note that the 'host' can be a name or an IP address.
+   * If necessary, Open_clientfd will perform the name resolution
+   * to obtain the IP address.
+   */
   clientfd = Open_clientfd(host, port);
 
   /*
-     * At this stage, the connection is established between the client
-     * and the server OS ... but it is possible that the server application
-     * has not yet called "Accept" for this connection
-     */
+   * At this stage, the connection is established between the client
+   * and the server OS ... but it is possible that the server application
+   * has not yet called "Accept" for this connection
+   */
   printf("client connected to server OS\n");
   printf("Enter file name to get: ");
 
