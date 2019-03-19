@@ -10,13 +10,13 @@ int main(int argc, char** argv)
   char       file_name[MAXLINE];
   rio_t      rio;
 
-  if (argc != 3)
+  if (argc != 2)
   {
-    fprintf(stderr, "usage: %s <host> <port>\n", argv[0]);
+    fprintf(stderr, "usage: %s <host>\n", argv[0]);
     exit(0);
   }
   host = argv[1];
-  port = atoi(argv[2]);
+  port = 2121;
 
   /*
    * Note that the 'host' can be a name or an IP address.

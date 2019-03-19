@@ -28,7 +28,7 @@ void ctrlc(int ntm)
  * Note that this code only works with IPv4 addresses
  * (IPv6 is not supported)
  */
-int main(int argc, char** argv)
+int main()
 {
   int                listenfd;
   int                connfd;
@@ -38,12 +38,7 @@ int main(int argc, char** argv)
   char               client_ip_string[INET_ADDRSTRLEN];
   char               client_hostname[MAX_NAME_LEN];
 
-  if (argc != 2)
-  {
-    fprintf(stderr, "usage: %s <port>\n", argv[0]);
-    exit(0);
-  }
-  port = atoi(argv[1]);
+  port = 2121;
 
   clientlen = (socklen_t)sizeof(clientaddr);
 
