@@ -16,8 +16,8 @@ void get_file(rio_t* rio, int clientfd, char* file_name)
     // convert nb bytes to integer
     long size = atoi(buf);
     // file to write
-    FILE* f = Fopen(file_name, "w");
-    printf("getting %s (%ldB '%s')\n", file_name, size, buf);
+    FILE* f = Fopen(file_name, "wb");
+    printf("getting %s (%ld Bytes)\n", file_name, size, buf);
     while (size > BUF_SIZE)
     {
       // get the file
@@ -51,7 +51,7 @@ char* cut_first(char* str, char c)
   {
     tmp++;
   }
-  
+
   if (*tmp == c)
   {
     *tmp = '\0';

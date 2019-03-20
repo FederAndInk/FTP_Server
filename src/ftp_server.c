@@ -31,6 +31,10 @@ void ctrlc(int ntm)
   exit(0);
 }
 
+/**
+ * @brief print header of server (no child)
+ * 
+ */
 void disp_serv()
 {
   printf("[Server no: %d] ", serv_no);
@@ -40,8 +44,11 @@ void command(int connfd)
 {
   rio_t rio;
   char  cmd[MAX_CMD_LEN];
+
+  // init rio read
   Rio_readinitb(&rio, connfd);
 
+  // reads the client's command
   receive_line(&rio, cmd, MAX_CMD_LEN);
   disp_serv();
   printf("command '%s' received\n", cmd);
