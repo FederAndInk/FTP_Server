@@ -1,3 +1,4 @@
+#include "UI.h"
 #include "csapp.h"
 #include "ftp_com.h"
 
@@ -17,19 +18,23 @@ void get_file(rio_t* rio, int clientfd, char* file_name)
     long size = atoi(buf);
     // file to write
     FILE* f = Fopen(file_name, "wb");
-    printf("getting %s (%ld Bytes)\n", file_name, size, buf);
-    while (size > BUF_SIZE)
+    printf("getting %s (%ld Bytes)\n", file_name, size);
+    long remaining = size;
+    while (remaining > BUF_SIZE)
     {
+      progress_bar((float)(size - remaining) / (float)size);
       // get the file
       Rio_readnb(rio, buf, sizeof(buf));
       // write the file
       Fwrite(buf, sizeof(*buf), BUF_SIZE, f);
-      size -= BUF_SIZE;
+      remaining -= BUF_SIZE;
     }
     // get the file
-    Rio_readnb(rio, buf, size);
+    Rio_readnb(rio, buf, remaining);
+    progress_bar(1.f);
+    printf("\n");
     // write the file
-    Fwrite(buf, sizeof(*buf), size, f);
+    Fwrite(buf, sizeof(*buf), remaining, f);
   }
   else
   {
