@@ -1,4 +1,6 @@
-add_compile_options(-Wall -Wextra)
+add_compile_options(-Wall -Wextra
+                    -fsanitize=undefined,address)
+add_link_options(-fsanitize=undefined,address)
 
 add_library(csapp csapp.c csapp.h)
 
