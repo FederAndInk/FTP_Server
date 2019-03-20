@@ -8,9 +8,6 @@ void get_file(rio_t* rio, int clientfd, char* file_name)
 
   send_line(clientfd, file_name);
 
-  size_t file_name_s = strlen(file_name);
-  file_name[--file_name_s] = '\0';
-
   receive_line(rio, buf, BUF_SIZE);
   if (strcmp(buf, FTP_OK) == 0)
   {
