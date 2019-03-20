@@ -4,11 +4,18 @@
 
 #define MAXINTLEN 20
 #define MAX_NAME_LEN 256
-#define NB_CHILDREN 2
+#define NB_CHILDREN 8
 
-void get_file(int connfd);
+void get_file(int connfd, rio_t* rio);
+void put_file(int connfd, rio_t* rio);
+void fpt_ls(int connfd, rio_t* rio);
+void fpt_pwd(int connfd, rio_t* rio);
+void fpt_cd(int connfd, rio_t* rio);
+void fpt_mkdir(int connfd, rio_t* rio);
+void ftp_rm(int connfd, rio_t* rio);
 
 pid_t children[NB_CHILDREN] = {0};
+int   serv_no = 0;
 
 void ctrlc(int ntm)
 {
@@ -22,6 +29,26 @@ void ctrlc(int ntm)
     }
   }
   exit(0);
+}
+
+void disp_serv()
+{
+  printf("[Server no: %d] ", serv_no);
+}
+
+void command(int connfd)
+{
+  rio_t rio;
+  char  cmd[MAX_CMD_LEN];
+  Rio_readinitb(&rio, connfd);
+
+  receive_line(&rio, cmd, MAX_CMD_LEN);
+  disp_serv();
+  printf("command '%s' received\n", cmd);
+  if (strcmp(cmd, "get") == 0)
+  {
+    get_file(connfd, &rio);
+  }
 }
 
 /* 
@@ -44,19 +71,23 @@ int main()
 
   listenfd = Open_listenfd(port);
 
-  for (int i = 0; i < NB_CHILDREN - 1; i++)
+  for (int i = 1; i < NB_CHILDREN; i++)
   {
     children[i] = Fork();
     if (children[i] == 0)
     {
+      serv_no = i;
       break;
     }
   }
 
-  if (children[0] != 0)
+  if (children[NB_CHILDREN - 2] != 0)
   {
     signal(SIGINT, ctrlc);
   }
+
+  disp_serv();
+  printf("actif\n");
 
   while (1)
   {
@@ -68,33 +99,25 @@ int main()
     /* determine the textual representation of the client's IP address */
     Inet_ntop(AF_INET, &clientaddr.sin_addr, client_ip_string, INET_ADDRSTRLEN);
 
+    disp_serv();
     printf("server connected to %s (%s)\n", client_hostname, client_ip_string);
 
-    get_file(connfd);
+    command(connfd);
     Close(connfd);
   }
 
   exit(0);
 }
 
-void Rio_write_str(int fd, char* str)
-{
-  Rio_writen(fd, str, (strlen(str)) * sizeof(char));
-}
-
-void get_file(int connfd)
+void get_file(int connfd, rio_t* rio)
 {
   size_t      n;
   char        buf[MAXLINE];
-  rio_t       rio;
   struct stat st;
   char        file_size[MAXINTLEN] = {'\0'};
 
-  Rio_readinitb(&rio, connfd);
-  if ((n = Rio_readlineb(&rio, buf, MAXLINE - 1)) != 0)
+  if ((n = receive_line(rio, buf, MAXLINE)) != 0)
   {
-    // buf has a new line at the end
-    buf[n - 1] = '\0';
     printf("Asked for: '%s'\n", buf);
     errno = 0;
     int fd = open(buf, O_RDONLY);
@@ -102,10 +125,10 @@ void get_file(int connfd)
     if (fd > 0)
     {
       printf("file found\n");
-      Rio_write_str(connfd, FTP_OK);
+      send_line(connfd, FTP_OK);
       fstat(fd, &st);
-      snprintf(file_size, MAXINTLEN - 1, "%ld\n", st.st_size);
-      Rio_write_str(connfd, file_size);
+      snprintf(file_size, MAXINTLEN - 1, "%ld", st.st_size);
+      send_line(connfd, file_size);
       printf("size of file: %ld\n", st.st_size);
 
       char* file = (char*)mmap(0, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
@@ -116,7 +139,7 @@ void get_file(int connfd)
     else
     {
       printf("file not found\n");
-      Rio_write_str(connfd, FTP_NO_FILE);
+      send_line(connfd, FTP_NO_FILE);
     }
   }
 }

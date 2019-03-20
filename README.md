@@ -7,6 +7,7 @@ Project in c to make a simple FTP client/server
 - [x] Multi-client
 - [x] Simple file transfert
 - [x] file loading and writing by blocs (mmap/buffer)
+- [x] command get
 - [ ] error handling (file not found...)
 - [ ] crash client handling
 - [ ] load balancer (multiple server)
