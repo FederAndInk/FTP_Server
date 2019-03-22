@@ -15,7 +15,7 @@ void get_file(rio_t* rio, int clientfd, char* file_name)
     // nb bytes of the file
     receive_line(rio, buf, BUF_SIZE);
     // convert nb bytes to integer
-    long size = atoi(buf);
+    long size = atol(buf);
     // file to write
     FILE* f = Fopen(file_name, "wb");
     printf("getting %s (%ld Bytes)\n", file_name, size);

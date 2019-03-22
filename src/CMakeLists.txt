@@ -1,4 +1,18 @@
-add_compile_options(-Wall -Wextra
+add_compile_options(-Wall
+                    -Wextra
+                    -Wvla
+                    -Wmissing-field-initializers
+                    -Wsizeof-array-argument
+                    -Wint-to-pointer-cast
+                    -Wpointer-to-int-cast
+                    -Wcast-qual
+                    -Wcast-align
+                    -Wcast-function-type
+                    -Wtype-limits
+                    -Warray-bounds
+                    -Wformat-overflow
+                    -Wstringop-overflow
+                    -Wnonnull
                     -fsanitize=undefined,address)
 add_link_options(-fsanitize=undefined,address)
 
