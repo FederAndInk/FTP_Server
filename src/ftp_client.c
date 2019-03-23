@@ -1,6 +1,8 @@
 #include "UI.h"
 #include "csapp.h"
+#include "format.h"
 #include "ftp_com.h"
+#include <time.h>
 
 void get_file(rio_t* rio, int clientfd, char* file_name)
 {
@@ -18,16 +20,34 @@ void get_file(rio_t* rio, int clientfd, char* file_name)
     long size = atol(buf);
     // file to write
     FILE* f = Fopen(file_name, "wb");
-    printf("getting %s (%ld Bytes)\n", file_name, size);
+    printf("getting %s (", file_name);
+    printf_bytes(size);
+    printf(")\n");
     long remaining = size;
+
+    long    downloaded = 0;
+    clock_t bef;
+    bef = clock();
     while (remaining > BUF_SIZE)
     {
-      progress_bar((float)(size - remaining) / (float)size);
+      if (progress_bar((float)(size - remaining) / (float)size))
+      {
+        double time_spend = (double)(clock() - bef) / (double)CLOCKS_PER_SEC;
+        double dl_sc = downloaded / time_spend;
+        printf(" ");
+        printf_bytes(dl_sc);
+        printf("/s ");
+        printf_second(remaining / dl_sc);
+        fflush(stdout);
+        downloaded = 0;
+        bef = clock();
+      }
       // get the file
       Rio_readnb(rio, buf, sizeof(buf));
       // write the file
       Fwrite(buf, sizeof(*buf), BUF_SIZE, f);
       remaining -= BUF_SIZE;
+      downloaded += BUF_SIZE;
     }
     // get the file
     Rio_readnb(rio, buf, remaining);

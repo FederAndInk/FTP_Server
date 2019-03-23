@@ -1,4 +1,5 @@
 #include "csapp.h"
+#include "format.h"
 #include "ftp_com.h"
 #include <sys/stat.h>
 
@@ -111,6 +112,8 @@ int main()
 
     command(connfd);
     Close(connfd);
+    disp_serv();
+    printf("actif\n");
   }
 
   exit(0);
@@ -136,7 +139,9 @@ void get_file(int connfd, rio_t* rio)
       fstat(fd, &st);
       snprintf(file_size, MAXINTLEN - 1, "%ld", st.st_size);
       send_line(connfd, file_size);
-      printf("size of file: %ld\n", st.st_size);
+      printf("size of file: %ld bytes (", st.st_size);
+      printf_bytes(st.st_size);
+      printf(")\n");
 
       char* file = (char*)mmap(0, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
       Rio_writen(connfd, file, st.st_size);

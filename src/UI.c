@@ -1,6 +1,7 @@
 #include "UI.h"
 #include <stdio.h>
 #include <sys/ioctl.h>
+#include <time.h>
 #include <unistd.h>
 
 char const FILL = '=';
@@ -11,15 +12,21 @@ void get_term_size(struct winsize* w)
   ioctl(STDOUT_FILENO, TIOCGWINSZ, w);
 }
 
-void progress_bar(float percent)
+bool progress_bar(float percent)
 {
-  static int prev_nb = 0;
-
+  static clock_t prev_time = 0;
+  static int     prev_nb = 0;
+  if (prev_time == 0)
+  {
+    prev_time = clock();
+  }
   struct winsize w;
   get_term_size(&w);
-  int size = w.ws_col * 0.75;
+  int size = w.ws_col * 0.7;
   int nb = percent * size;
-  if (prev_nb == 0 || prev_nb != nb)
+
+  double passed = (clock() - prev_time) / (double)CLOCKS_PER_SEC;
+  if (passed >= 0.2 || percent >= 0.95) // || prev_nb == 0 || prev_nb != nb
   {
     printf("\e[2K\e[G");
     printf("[");
@@ -37,8 +44,13 @@ void progress_bar(float percent)
     {
       putchar(EMPTY);
     }
-    printf("]");
+    printf("] %.3g%%", percent * 100.0);
+
     fflush(stdout);
+    prev_time = clock();
+    prev_nb = nb;
+    return true;
   }
   prev_nb = nb;
+  return false;
 }
