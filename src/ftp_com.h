@@ -4,9 +4,6 @@
 
 // States
 #define FTP_OK "0"
-#define FTP_ERROR "-1"
-#define FTP_NO_FILE "1"
-#define FTP_NO_RIGHT "2"
 
 /**
  * @brief receive a line whitout keeping the newline charater and replacing it with null '\0'

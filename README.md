@@ -9,8 +9,8 @@ Project in c to make a simple FTP client/server
 - [x] file loading and writing by blocs (mmap/buffer)
 - [x] command get
 - [x] progress bar
-- [ ] error handling (file not found...)
-- [ ] crash client handling
+- [X] detailed error handling (through errno)
+- [ ] crash client handling (resume download)
 - [ ] load balancer (multiple server)
 - [ ] persistant connection
 - [ ] ls

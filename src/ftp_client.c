@@ -2,6 +2,7 @@
 #include "csapp.h"
 #include "format.h"
 #include "ftp_com.h"
+#include "utils.h"
 #include <time.h>
 
 void get_file(rio_t* rio, int clientfd, char* file_name)
@@ -12,6 +13,7 @@ void get_file(rio_t* rio, int clientfd, char* file_name)
   send_line(clientfd, file_name);
 
   receive_line(rio, buf, BUF_SIZE);
+  int err = atoi(buf);
   if (strcmp(buf, FTP_OK) == 0)
   {
     // nb bytes of the file
@@ -45,33 +47,8 @@ void get_file(rio_t* rio, int clientfd, char* file_name)
   }
   else
   {
-    printf("Can't download file\n");
-  }
-}
-
-/**
- * @brief cut str to the first occurence of c (write a '\0' over c)
- * 
- * @param str 
- * @param c 
- * @return char* the second part after first c
- */
-char* cut_first(char* str, char c)
-{
-  char* tmp = str;
-  while (*tmp != '\0' && *tmp != c)
-  {
-    tmp++;
-  }
-
-  if (*tmp == c)
-  {
-    *tmp = '\0';
-    return tmp + 1;
-  }
-  else
-  {
-    return str;
+    errno = err;
+    perror("Can't download file");
   }
 }
 

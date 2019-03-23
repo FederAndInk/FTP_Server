@@ -171,8 +171,10 @@ void get_file(int connfd, rio_t* rio)
     }
     else
     {
-      printf("file not found\n");
-      send_line(connfd, FTP_NO_FILE);
+      perror("get error");
+      n = snprintf(buf, MAXLINE, "%d", errno);
+      buf[n] = '\0';
+      send_line(connfd, buf);
     }
   }
 }

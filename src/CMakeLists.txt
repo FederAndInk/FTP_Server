@@ -23,6 +23,8 @@ add_library(csapp csapp.c csapp.h)
 
 add_library(ftp_com ftp_com.c ftp_com.h)
 
+add_library(utils utils.c utils.h)
+
 add_library(format format.c format.h)
 
 add_library(UI UI.c UI.h)
@@ -32,6 +34,7 @@ target_link_libraries(ftp_client
                       PRIVATE csapp
                               ftp_com
                               UI
+                              utils
                               format
                               pthread)
 
