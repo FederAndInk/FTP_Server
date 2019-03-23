@@ -6,6 +6,7 @@
 #define MAXINTLEN 20
 #define MAX_NAME_LEN 256
 #define NB_CHILDREN 8
+#define CMD_SIZE 8192
 
 void get_file(int connfd, rio_t* rio);
 void put_file(int connfd, rio_t* rio);
@@ -16,7 +17,7 @@ void fpt_mkdir(int connfd, rio_t* rio);
 void ftp_rm(int connfd, rio_t* rio);
 
 pid_t children[NB_CHILDREN] = {0};
-int   serv_no = 0;
+int   serv_no = -1;
 
 void ctrlc(int ntm)
 {
@@ -38,7 +39,14 @@ void ctrlc(int ntm)
  */
 void disp_serv()
 {
-  printf("[Server no: %d] ", serv_no);
+  if (serv_no == -1)
+  {
+    printf("[Server] ");
+  }
+  else
+  {
+    printf("[Server no: %d] ", serv_no);
+  }
 }
 
 void command(int connfd)
@@ -79,7 +87,7 @@ int main()
 
   listenfd = Open_listenfd(port);
 
-  for (int i = 1; i < NB_CHILDREN; i++)
+  for (int i = 0; i < NB_CHILDREN; i++)
   {
     children[i] = Fork();
     if (children[i] == 0)
@@ -89,34 +97,47 @@ int main()
     }
   }
 
-  if (children[NB_CHILDREN - 2] != 0)
+  if (children[NB_CHILDREN - 1] != 0)
   {
+    char cmd[CMD_SIZE];
     signal(SIGINT, ctrlc);
-  }
-
-  disp_serv();
-  printf("actif\n");
-
-  while (1)
-  {
-    connfd = Accept(listenfd, (SA*)&clientaddr, &clientlen);
-
-    /* determine the name of the client */
-    Getnameinfo((SA*)&clientaddr, clientlen, client_hostname, MAX_NAME_LEN, 0, 0, 0);
-
-    /* determine the textual representation of the client's IP address */
-    Inet_ntop(AF_INET, &clientaddr.sin_addr, client_ip_string, INET_ADDRSTRLEN);
-
     disp_serv();
-    printf("server connected to %s (%s)\n", client_hostname, client_ip_string);
+    printf("OK\n");
+    while (Fgets(cmd, CMD_SIZE, stdin) != NULL)
+    {
+      cmd[strlen(cmd) - 1] = '\0';
 
-    command(connfd);
-    Close(connfd);
+      if (strcmp(cmd, "bye") == 0)
+      {
+        kill(getpid(), SIGINT);
+      }
+    }
+    kill(getpid(), SIGINT);
+  }
+  else
+  {
     disp_serv();
     printf("actif\n");
-  }
 
-  exit(0);
+    while (1)
+    {
+      connfd = Accept(listenfd, (SA*)&clientaddr, &clientlen);
+
+      /* determine the name of the client */
+      Getnameinfo((SA*)&clientaddr, clientlen, client_hostname, MAX_NAME_LEN, 0, 0, 0);
+
+      /* determine the textual representation of the client's IP address */
+      Inet_ntop(AF_INET, &clientaddr.sin_addr, client_ip_string, INET_ADDRSTRLEN);
+
+      disp_serv();
+      printf("server connected to %s (%s)\n", client_hostname, client_ip_string);
+
+      command(connfd);
+      Close(connfd);
+      disp_serv();
+      printf("actif\n");
+    }
+  }
 }
 
 void get_file(int connfd, rio_t* rio)

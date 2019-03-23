@@ -4,5 +4,23 @@
  * @param percent between 0.0 and 1.0
  */
 #include <stdbool.h>
+#include <stddef.h>
+#include <time.h>
 
-bool progress_bar(float percent);
+typedef struct
+{
+  size_t size;
+  size_t adv;
+
+  size_t  delta;
+  clock_t t_delta;
+  double  rate;
+
+  clock_t lastUp;
+  double  up;
+} Bar;
+
+void init_bar(Bar* b, size_t size);
+
+void progress_bar(float percent);
+void download_bar(Bar* b, size_t downloaded);

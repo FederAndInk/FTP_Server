@@ -24,30 +24,17 @@ void get_file(rio_t* rio, int clientfd, char* file_name)
     printf_bytes(size);
     printf(")\n");
     long remaining = size;
+    Bar  bDownload;
+    init_bar(&bDownload, size);
 
-    long    downloaded = 0;
-    clock_t bef;
-    bef = clock();
     while (remaining > BUF_SIZE)
     {
-      if (progress_bar((float)(size - remaining) / (float)size))
-      {
-        double time_spend = (double)(clock() - bef) / (double)CLOCKS_PER_SEC;
-        double dl_sc = downloaded / time_spend;
-        printf(" ");
-        printf_bytes(dl_sc);
-        printf("/s ");
-        printf_second(remaining / dl_sc);
-        fflush(stdout);
-        downloaded = 0;
-        bef = clock();
-      }
+      download_bar(&bDownload, size - remaining);
       // get the file
       Rio_readnb(rio, buf, sizeof(buf));
       // write the file
       Fwrite(buf, sizeof(*buf), BUF_SIZE, f);
       remaining -= BUF_SIZE;
-      downloaded += BUF_SIZE;
     }
     // get the file
     Rio_readnb(rio, buf, remaining);

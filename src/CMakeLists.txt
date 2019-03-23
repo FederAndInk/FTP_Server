@@ -1,5 +1,8 @@
 add_compile_options(-Wall
                     -Wextra
+                    -Werror=int-to-pointer-cast
+                    -Werror=pointer-to-int-cast
+                    -Werror=int-conversion
                     -Wvla
                     -Wmissing-field-initializers
                     -Wsizeof-array-argument
