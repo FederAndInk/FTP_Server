@@ -1,9 +1,10 @@
 #include "csapp.h"
 #include "format.h"
 #include "ftp_com.h"
+#include <stdarg.h>
 #include <sys/stat.h>
 
-#define MAXINTLEN 20
+#define MAXLONGLEN 21
 #define MAX_NAME_LEN 256
 #define NB_CHILDREN 8
 #define CMD_SIZE 8192
@@ -37,7 +38,7 @@ void ctrlc(int ntm)
  * @brief print header of server (no child)
  * 
  */
-void disp_serv()
+void disp_serv(char const* format, ...)
 {
   if (serv_no == -1)
   {
@@ -47,6 +48,11 @@ void disp_serv()
   {
     printf("[Server no: %d] ", serv_no);
   }
+
+  va_list args;
+  va_start(args, format);
+  vprintf(format, args);
+  va_end(args);
 }
 
 void command(int connfd)
@@ -59,8 +65,7 @@ void command(int connfd)
 
   // reads the client's command
   receive_line(&rio, cmd, MAX_CMD_LEN);
-  disp_serv();
-  printf("command '%s' received\n", cmd);
+  disp_serv("command '%s' received\n", cmd);
   if (strcmp(cmd, "get") == 0)
   {
     get_file(connfd, &rio);
@@ -101,8 +106,7 @@ int main()
   {
     char cmd[CMD_SIZE];
     signal(SIGINT, ctrlc);
-    disp_serv();
-    printf("OK\n");
+    disp_serv("OK\n");
     while (Fgets(cmd, CMD_SIZE, stdin) != NULL)
     {
       cmd[strlen(cmd) - 1] = '\0';
@@ -116,8 +120,7 @@ int main()
   }
   else
   {
-    disp_serv();
-    printf("actif\n");
+    disp_serv("actif\n");
 
     while (1)
     {
@@ -129,13 +132,11 @@ int main()
       /* determine the textual representation of the client's IP address */
       Inet_ntop(AF_INET, &clientaddr.sin_addr, client_ip_string, INET_ADDRSTRLEN);
 
-      disp_serv();
-      printf("server connected to %s (%s)\n", client_hostname, client_ip_string);
+      disp_serv("server connected to %s (%s)\n", client_hostname, client_ip_string);
 
       command(connfd);
       Close(connfd);
-      disp_serv();
-      printf("actif\n");
+      disp_serv("actif\n");
     }
   }
 }
@@ -149,18 +150,20 @@ void get_file(int connfd, rio_t* rio)
 
   if ((n = receive_line(rio, buf, MAXLINE)) != 0)
   {
-    printf("Asked for: '%s'\n", buf);
+    disp_serv("Asked for: '%s'\n", buf);
     errno = 0;
     int fd = open(buf, O_RDONLY);
 
     if (fd > 0)
     {
-      printf("file found\n");
+      char file_size[MAXLONGLEN] = {'\0'};
+
+      disp_serv("file found\n");
       send_line(connfd, FTP_OK);
       fstat(fd, &st);
       snprintf(file_size, MAXINTLEN - 1, "%ld", st.st_size);
       send_line(connfd, file_size);
-      printf("size of file: %ld bytes (", st.st_size);
+      disp_serv("size of file: %ld bytes (", st.st_size);
       printf_bytes(st.st_size);
       printf(")\n");
 
