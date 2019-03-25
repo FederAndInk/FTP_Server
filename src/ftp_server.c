@@ -146,7 +146,7 @@ void get_file(int connfd, rio_t* rio)
   size_t      n;
   char        buf[MAXLINE];
   struct stat st;
-  char        file_size[MAXINTLEN] = {'\0'};
+  char        file_size[MAXLONGLEN] = {'\0'};
 
   if ((n = receive_line(rio, buf, MAXLINE)) != 0)
   {
@@ -161,7 +161,7 @@ void get_file(int connfd, rio_t* rio)
       disp_serv("file found\n");
       send_line(connfd, FTP_OK);
       fstat(fd, &st);
-      snprintf(file_size, MAXINTLEN - 1, "%ld", st.st_size);
+      snprintf(file_size, MAXLONGLEN - 1, "%ld", st.st_size);
       send_line(connfd, file_size);
       disp_serv("size of file: %ld bytes (", st.st_size);
       printf_bytes(st.st_size);
