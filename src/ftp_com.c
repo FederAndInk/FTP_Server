@@ -1,4 +1,8 @@
 #include "ftp_com.h"
+#include <math.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 ssize_t receive_line(rio_t* rp, char* str, size_t maxlen)
 {
@@ -19,4 +23,62 @@ void send_line(int fd, char const* str)
 {
   Rio_writen(fd, str, strlen(str));
   Rio_writen(fd, "\n", 1);
+}
+
+void sf_init(Seg_File* sf, char const* file_name, size_t req_size, Seg_File_Mode sfm,
+             size_t blk_size)
+{
+  struct stat file_info;
+  stat(file_name, &file_info);
+  sf->size = file_info.st_size;
+  sf->req_size = req_size;
+  sf->blk_size = blk_size;
+
+  switch (sfm)
+  {
+  case SF_READ:
+    sf->fd = open(file_name, O_RDONLY);
+    sf->data = mmap(NULL, sf->req_size, PROT_READ, MAP_SHARED, sf->fd, 0);
+    break;
+  case SF_READ_WRITE:
+    sf->fd = open(file_name, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IROTH | S_IRGRP);
+    sf->data = mmap(NULL, sf->req_size, PROT_READ, MAP_SHARED, sf->fd, 0);
+    break;
+  default:
+    fprintf(stderr, "error: unknown seg_file_mode: %d", sfm);
+    exit(2);
+  }
+}
+
+size_t sf_nb_blk(Seg_File* sf)
+{
+  return ceil((double)sf->req_size / (double)sf->blk_size);
+}
+
+Block sf_get_blk(Seg_File* sf, size_t no)
+{
+  Block b;
+  if (sf_nb_blk(sf) - 1 == no)
+  {
+    b.blk_size = (sf->req_size) % sf->blk_size;
+    //handle the case where we have to increase file size
+  }
+  else
+  {
+    b.blk_size = sf->blk_size;
+  }
+  b.data = sf->data + no * (sf->blk_size);
+
+  return b;
+}
+
+void sf_blk_sum(Block blk, sha512_sum* sum)
+{
+  SHA512(blk.data, blk.blk_size, sum->sum);
+}
+
+void sf_destroy(Seg_File* sf)
+{
+  close(sf->fd);
+  munmap(sf->data, sf->req_size);
 }

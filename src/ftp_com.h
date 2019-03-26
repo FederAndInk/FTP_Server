@@ -1,5 +1,6 @@
 #include "csapp.h"
 #include <openssl/sha.h>
+#include <stdbool.h>
 
 #define MAX_CMD_LEN 100
 
@@ -10,6 +11,7 @@ typedef struct
 {
   size_t         blk_size;
   size_t         size;
+  size_t         req_size;
   unsigned char* data;
   int            fd;
 } Seg_File;
@@ -27,18 +29,18 @@ typedef struct
 
 typedef enum
 {
-  SF_WRITE,
   SF_READ,
   SF_READ_WRITE,
 } Seg_File_Mode;
 
-void sf_init(Seg_File* sf, char const* file_name, Seg_File_Mode sfm, size_t blk_size);
+void sf_init(Seg_File* sf, char const* file_name, size_t req_size, Seg_File_Mode sfm,
+             size_t blk_size);
 
-Block sf_read_blk(Seg_File* sf, size_t no);
+size_t sf_nb_blk(Seg_File* sf);
+
+Block sf_get_blk(Seg_File* sf, size_t no);
 
 void sf_blk_sum(Block blk, sha512_sum* sum);
-
-void sf_write_blk(Seg_File* sf, size_t no, Block blk);
 
 void sf_destroy(Seg_File* sf);
 
