@@ -1,6 +1,7 @@
 #include "csapp.h"
 #include "format.h"
 #include "ftp_com.h"
+#include <openssl/sha.h>
 #include <stdarg.h>
 #include <sys/stat.h>
 
@@ -8,6 +9,8 @@
 #define MAX_NAME_LEN 256
 #define NB_CHILDREN 8
 #define CMD_SIZE 8192
+
+#define BLK_SIZE (1 << 20)
 
 void get_file(int connfd, rio_t* rio);
 void put_file(int connfd, rio_t* rio);
@@ -143,10 +146,8 @@ int main()
 
 void get_file(int connfd, rio_t* rio)
 {
-  size_t      n;
-  char        buf[MAXLINE];
-  struct stat st;
-  char        file_size[MAXLONGLEN] = {'\0'};
+  size_t n;
+  char   buf[MAXLINE];
 
   if ((n = receive_line(rio, buf, MAXLINE)) != 0)
   {
@@ -160,15 +161,45 @@ void get_file(int connfd, rio_t* rio)
 
       disp_serv("file found\n");
       send_line(connfd, FTP_OK);
+
+      // handle size
+      struct stat st;
       fstat(fd, &st);
-      snprintf(file_size, MAXLONGLEN - 1, "%ld", st.st_size);
+
+      char* file = (char*)mmap(0, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+
+      receive_line(rio, file_size, MAXLONGLEN);
+      long request_check = atol(file_size);
+      if (request_check != 0)
+      {
+        disp_serv("checking %d first bytes (", request_check);
+        printf_bytes(request_check);
+        printf(")\n");
+
+        unsigned char sha[SHA512_DIGEST_LENGTH + 1];
+
+        SHA256((unsigned char const*)file, request_check, sha);
+        sha[SHA512_DIGEST_LENGTH] = '\0';
+
+        disp_serv("sending checksum\n");
+        send_line(connfd, sha);
+      }
+
+      long size = st.st_size - request_check;
+
+      snprintf(file_size, MAXLONGLEN - 1, "%ld", size);
       send_line(connfd, file_size);
       disp_serv("size of file: %ld bytes (", st.st_size);
       printf_bytes(st.st_size);
       printf(")\n");
+      if (request_check != 0)
+      {
+        disp_serv("Only sending: %ld last bytes (", size);
+        printf_bytes(size);
+        printf(")\n");
+      }
 
-      char* file = (char*)mmap(0, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-      Rio_writen(connfd, file, st.st_size);
+      Rio_writen(connfd, file + request_check, size);
       munmap(file, st.st_size);
       close(fd);
     }

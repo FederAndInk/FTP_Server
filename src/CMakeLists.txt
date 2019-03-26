@@ -1,3 +1,5 @@
+find_package(OpenSSL REQUIRED)
+
 add_compile_options(-Wall
                     -Wextra
                     -Werror=int-to-pointer-cast
@@ -36,6 +38,7 @@ target_link_libraries(ftp_client
                               UI
                               utils
                               format
+                              OpenSSL::SSL
                               pthread)
 
 add_executable(ftp_server ftp_server.c ftp_com.h)
@@ -43,4 +46,5 @@ target_link_libraries(ftp_server
                       PRIVATE csapp
                               ftp_com
                               format
+                              OpenSSL::SSL
                               pthread)

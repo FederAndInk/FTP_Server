@@ -2,6 +2,10 @@
 
 Project in c to make a simple FTP client/server
 
+Depends on:
+
+- OpenSSL
+
 ## Features
 
 - [x] Multi-client

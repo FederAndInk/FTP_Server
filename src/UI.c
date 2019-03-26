@@ -20,7 +20,7 @@ void init_bar(Bar* b, size_t size)
   b->t_delta = clock() - 1;
   b->rate = 0.0;
   b->lastUp = 0;
-  b->up = 0.4;
+  b->up = 0.6;
 }
 
 void progress_bar(float percent)
