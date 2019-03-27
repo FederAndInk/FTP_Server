@@ -16,7 +16,7 @@ Depends on:
 - [X] detailed error handling (through errno)
 - [ ] crash client handling (resume download)
 - [ ] load balancer (multiple server)
-- [ ] persistant connection
+- [X] persistant connection
 - [ ] ls
 - [ ] pwd
 - [ ] cd (limited to the ftp server root)

@@ -1,11 +1,19 @@
 #include "UI.h"
 #include "format.h"
+#include <stdint.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 
 char const FILL = '=';
 char const EMPTY = ' ';
+
+struct timeval ptime()
+{
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  return tv;
+}
 
 void get_term_size(struct winsize* w)
 {
@@ -17,9 +25,10 @@ void init_bar(Bar* b, size_t size)
   b->size = size;
   b->adv = 0;
   b->delta = 0;
-  b->t_delta = clock() - 1;
+  b->t_delta = ptime();
   b->rate = 0.0;
-  b->lastUp = 0;
+  b->lastUp.tv_sec = 0;
+  b->lastUp.tv_usec = 0;
   b->up = 0.6;
 }
 
@@ -54,8 +63,17 @@ void progress_bar(float percent)
 void download_bar(Bar* b, size_t downloaded)
 {
   b->delta += downloaded - b->adv;
+  struct timeval now = ptime();
+  struct timeval ts;
+  timersub(&now, &(b->t_delta), &ts);
+  double time_spend = ts.tv_sec + ts.tv_usec / 1000000.0;
+  if (b->lastUp.tv_sec == 0)
+  {
+    progress_bar((float)(downloaded) / (float)b->size);
+    printf("ts: %g", time_spend);
+    // b->lastUp = now;
+  }
 
-  double time_spend = (double)(clock() - b->t_delta) / (double)CLOCKS_PER_SEC;
   if (time_spend >= b->up)
   {
     progress_bar((float)(downloaded) / (float)b->size);
@@ -63,7 +81,7 @@ void download_bar(Bar* b, size_t downloaded)
     {
       b->rate = b->delta / time_spend;
       b->delta = 0;
-      b->t_delta = clock();
+      b->t_delta = ptime();
     }
 
     printf(" ");
@@ -71,7 +89,7 @@ void download_bar(Bar* b, size_t downloaded)
     printf("/s ");
     printf_second((b->size - downloaded) / b->rate);
     fflush(stdout);
-    b->lastUp = clock();
+    b->lastUp = ptime();
   }
   b->adv = downloaded;
 }

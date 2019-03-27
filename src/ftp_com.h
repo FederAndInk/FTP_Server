@@ -2,10 +2,15 @@
 #include <openssl/sha.h>
 #include <stdbool.h>
 
-#define MAX_CMD_LEN 100
+#define FTP_MAX_CMD_LEN 100
+#define FTP_MAX_LINE_SIZE 8192
 
 // States
 #define FTP_OK "0"
+
+#define GET_BLK "get_blk"
+#define GET_BLK_SUM "get_blk_sum"
+#define GET_END "get_end"
 
 typedef struct
 {
@@ -42,11 +47,13 @@ typedef enum
  * @param sfm open mode
  * @param blk_size block size
  * 
+ * @return 0 on success, -1 otherwise and errno is set
+ * 
  * @note must have a corresponding call to sf_destroy
  * @see sf_destroy
  */
-void sf_init(Seg_File* sf, char const* file_name, size_t req_size, Seg_File_Mode sfm,
-             size_t blk_size);
+int sf_init(Seg_File* sf, char const* file_name, size_t req_size, Seg_File_Mode sfm,
+            size_t blk_size);
 
 size_t sf_nb_blk(Seg_File* sf);
 
@@ -75,20 +82,32 @@ void sf_blk_sum(Block blk, sha512_sum* sum);
  */
 void sf_destroy(Seg_File* sf);
 
+void sf_send_blk(Seg_File* sf, rio_t* rio, size_t no_blk);
+void sf_send_blk_sum(Seg_File* sf, rio_t* rio, size_t no_blk);
+
+bool sf_receive_blk(Seg_File* sf, rio_t* rio, size_t no_blk);
+bool sf_receive_blk_sum(Seg_File* sf, rio_t* rio, size_t no_blk, sha512_sum* sum);
+
 /**
  * @brief receive a line whitout keeping the newline charater and replacing it with null '\0'
  * 
- * @param rp 
+ * @param rio 
  * @param str 
  * @param maxlen 
  */
-ssize_t receive_line(rio_t* rp, char* str, size_t maxlen);
+ssize_t receive_line(rio_t* rio, char* str, size_t maxlen);
+
+size_t receive_size_t(rio_t* rio);
+long   receive_long(rio_t* rio);
 
 /**
  * @brief send str adding '\n' at the end
  * 
- * @param rp 
+ * @param rio 
  * @param str
  * @param len 
  */
-void send_line(int fd, char const* str);
+void send_line(rio_t* rio, char const* str);
+
+void send_size_t(rio_t* rio, size_t s);
+void send_long(rio_t* rio, long l);

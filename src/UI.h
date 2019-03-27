@@ -5,6 +5,7 @@
  */
 #include <stdbool.h>
 #include <stddef.h>
+#include <sys/time.h>
 #include <time.h>
 
 typedef struct
@@ -12,12 +13,12 @@ typedef struct
   size_t size;
   size_t adv;
 
-  size_t  delta;
-  clock_t t_delta;
-  double  rate;
+  size_t         delta;
+  struct timeval t_delta;
+  double         rate;
 
-  clock_t lastUp;
-  double  up;
+  struct timeval lastUp;
+  double         up;
 } Bar;
 
 void init_bar(Bar* b, size_t size);

@@ -5,20 +5,17 @@
 #include <stdarg.h>
 #include <sys/stat.h>
 
-#define MAXLONGLEN 21
 #define MAX_NAME_LEN 256
 #define NB_CHILDREN 8
-#define CMD_SIZE 8192
-
 #define BLK_SIZE (1 << 20)
 
-void get_file(int connfd, rio_t* rio);
-void put_file(int connfd, rio_t* rio);
-void fpt_ls(int connfd, rio_t* rio);
-void fpt_pwd(int connfd, rio_t* rio);
-void fpt_cd(int connfd, rio_t* rio);
-void fpt_mkdir(int connfd, rio_t* rio);
-void ftp_rm(int connfd, rio_t* rio);
+void get_file(rio_t* rio);
+void put_file(rio_t* rio);
+void fpt_ls(rio_t* rio);
+void fpt_pwd(rio_t* rio);
+void fpt_cd(rio_t* rio);
+void fpt_mkdir(rio_t* rio);
+void ftp_rm(rio_t* rio);
 
 pid_t children[NB_CHILDREN] = {0};
 int   serv_no = -1;
@@ -58,20 +55,18 @@ void disp_serv(char const* format, ...)
   va_end(args);
 }
 
-void command(int connfd)
+void command(rio_t* rio)
 {
-  rio_t rio;
-  char  cmd[MAX_CMD_LEN];
-
-  // init rio read
-  Rio_readinitb(&rio, connfd);
+  char cmd[FTP_MAX_CMD_LEN];
 
   // reads the client's command
-  receive_line(&rio, cmd, MAX_CMD_LEN);
-  disp_serv("command '%s' received\n", cmd);
-  if (strcmp(cmd, "get") == 0)
+  while (receive_line(rio, cmd, FTP_MAX_CMD_LEN) > 0 && strcmp(cmd, "bye") != 0)
   {
-    get_file(connfd, &rio);
+    disp_serv("command '%s' received\n", cmd);
+    if (strcmp(cmd, "get") == 0)
+    {
+      get_file(rio);
+    }
   }
 }
 
@@ -107,10 +102,10 @@ int main()
 
   if (children[NB_CHILDREN - 1] != 0)
   {
-    char cmd[CMD_SIZE];
+    char cmd[FTP_MAX_CMD_LEN];
     signal(SIGINT, ctrlc);
     disp_serv("OK\n");
-    while (Fgets(cmd, CMD_SIZE, stdin) != NULL)
+    while (Fgets(cmd, FTP_MAX_CMD_LEN, stdin) != NULL)
     {
       cmd[strlen(cmd) - 1] = '\0';
 
@@ -124,10 +119,11 @@ int main()
   else
   {
     disp_serv("actif\n");
-
+    rio_t rio;
     while (1)
     {
       connfd = Accept(listenfd, (SA*)&clientaddr, &clientlen);
+      Rio_readinitb(&rio, connfd);
 
       /* determine the name of the client */
       Getnameinfo((SA*)&clientaddr, clientlen, client_hostname, MAX_NAME_LEN, 0, 0, 0);
@@ -137,78 +133,90 @@ int main()
 
       disp_serv("server connected to %s (%s)\n", client_hostname, client_ip_string);
 
-      command(connfd);
+      command(&rio);
       Close(connfd);
       disp_serv("actif\n");
     }
   }
 }
 
-void get_file(int connfd, rio_t* rio)
+/**
+ * @brief send file
+ * Protocol:
+ * 1. receive file name
+ * 2. send ok/err (if file is ready)
+ * 3. send file size
+ * 4. send blk size
+ * 5. wait for commands:
+ *   - get_blk \n no
+ *   - get_blk_sum \n no
+ * 6. receiving "get_end" end sending file
+ * 
+ * @param connfd 
+ * @param rio 
+ */
+void get_file(rio_t* rio)
 {
   size_t n;
-  char   buf[MAXLINE];
+  char   buf[FTP_MAX_LINE_SIZE];
 
-  if ((n = receive_line(rio, buf, MAXLINE)) != 0)
+  // 1. receive file name
+  if ((n = receive_line(rio, buf, FTP_MAX_LINE_SIZE)) != 0)
   {
     disp_serv("Asked for: '%s'\n", buf);
-    errno = 0;
-    int fd = open(buf, O_RDONLY);
+    Seg_File sf;
+    int      err = sf_init(&sf, buf, 0, SF_READ, BLK_SIZE);
 
-    if (fd > 0)
+    if (err == 0)
     {
-      char file_size[MAXLONGLEN] = {'\0'};
-
       disp_serv("file found\n");
-      send_line(connfd, FTP_OK);
+      // 2. ok
+      send_line(rio, FTP_OK);
 
       // handle size
-      struct stat st;
-      fstat(fd, &st);
 
-      char* file = (char*)mmap(0, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+      // 3. file size
+      send_size_t(rio, sf.size);
+      // 4. blk size
+      send_size_t(rio, sf.blk_size);
 
-      receive_line(rio, file_size, MAXLONGLEN);
-      long request_check = atol(file_size);
-      if (request_check != 0)
-      {
-        disp_serv("checking %d first bytes (", request_check);
-        printf_bytes(request_check);
-        printf(")\n");
-
-        unsigned char sha[SHA512_DIGEST_LENGTH + 1];
-
-        SHA256((unsigned char const*)file, request_check, sha);
-        sha[SHA512_DIGEST_LENGTH] = '\0';
-
-        disp_serv("sending checksum\n");
-        send_line(connfd, sha);
-      }
-
-      long size = st.st_size - request_check;
-
-      snprintf(file_size, MAXLONGLEN - 1, "%ld", size);
-      send_line(connfd, file_size);
-      disp_serv("size of file: %ld bytes (", st.st_size);
-      printf_bytes(st.st_size);
+      disp_serv("size of file: %ld bytes (", sf.size);
+      printf_bytes(sf.size);
       printf(")\n");
-      if (request_check != 0)
-      {
-        disp_serv("Only sending: %ld last bytes (", size);
-        printf_bytes(size);
-        printf(")\n");
-      }
+      disp_serv("%zu blocks of %zu bytes\n", sf_nb_blk(&sf), sf.blk_size);
 
-      Rio_writen(connfd, file + request_check, size);
-      munmap(file, st.st_size);
-      close(fd);
+      // file is ready
+      // 5. waiting for client commands
+
+      while ((n = receive_line(rio, buf, FTP_MAX_LINE_SIZE)) != 0 &&
+             strcmp(buf, GET_END) != 0)
+      {
+        size_t no = receive_size_t(rio);
+        // disp_serv("get subcommand '%s %zu' received\n", buf, no);
+
+        if (strcmp(buf, GET_BLK) == 0)
+        {
+          sf_send_blk(&sf, rio, no);
+        }
+        else if (strcmp(buf, GET_BLK_SUM) == 0)
+        {
+          sf_send_blk_sum(&sf, rio, no);
+        }
+        else
+        {
+          // Unknown command !
+        }
+      }
+      // 6. end
+
+      sf_destroy(&sf);
     }
     else
     {
+      // 2. err
       perror("get error");
-      n = snprintf(buf, MAXLINE, "%d", errno);
-      buf[n] = '\0';
-      send_line(connfd, buf);
+      send_long(rio, errno);
+      errno = 0;
     }
   }
 }

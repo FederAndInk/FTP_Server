@@ -5,9 +5,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-ssize_t receive_line(rio_t* rp, char* str, size_t maxlen)
+#define MAX_SIZET_LEN 21
+
+ssize_t receive_line(rio_t* rio, char* str, size_t maxlen)
 {
-  ssize_t n = Rio_readlineb(rp, str, maxlen - 1);
+  ssize_t n = Rio_readlineb(rio, str, maxlen - 1);
   if (n > 0)
   {
     str[n - 1] = '\0';
@@ -20,35 +22,82 @@ ssize_t receive_line(rio_t* rp, char* str, size_t maxlen)
   return n;
 }
 
-void send_line(int fd, char const* str)
+size_t receive_size_t(rio_t* rio)
 {
-  Rio_writen(fd, str, strlen(str));
-  Rio_writen(fd, "\n", 1);
+  char buf[MAX_SIZET_LEN] = {0};
+
+  receive_line(rio, buf, MAX_SIZET_LEN);
+  return strtoul(buf, NULL, 10);
 }
 
-void sf_init(Seg_File* sf, char const* file_name, size_t req_size, Seg_File_Mode sfm,
-             size_t blk_size)
+void send_size_t(rio_t* rio, size_t s)
+{
+  char buf[MAX_SIZET_LEN] = {0};
+  snprintf(buf, MAX_SIZET_LEN - 1, "%zu", s);
+  send_line(rio, buf);
+}
+
+long receive_long(rio_t* rio)
+{
+  char buf[MAX_SIZET_LEN] = {0};
+  receive_line(rio, buf, MAX_SIZET_LEN);
+  return strtol(buf, NULL, 10);
+}
+
+void send_long(rio_t* rio, long l)
+{
+  char buf[MAX_SIZET_LEN] = {0};
+  snprintf(buf, MAX_SIZET_LEN - 1, "%ld", l);
+  send_line(rio, buf);
+}
+
+void send_line(rio_t* rio, char const* str)
+{
+  Rio_writen(rio->rio_fd, str, strlen(str));
+  Rio_writen(rio->rio_fd, "\n", 1);
+}
+
+int sf_init(Seg_File* sf, char const* file_name, size_t req_size, Seg_File_Mode sfm,
+            size_t blk_size)
 {
   struct stat file_info;
-  stat(file_name, &file_info);
-  sf->size = file_info.st_size;
-  sf->req_size = req_size == 0 ? sf->size : req_size;
-  sf->blk_size = blk_size;
+  errno = 0;
 
-  switch (sfm)
+  if (stat(file_name, &file_info) == 0 || (errno == ENOENT && req_size != 0))
   {
-  case SF_READ:
-    sf->fd = open(file_name, O_RDONLY);
-    sf->data = (unsigned char*)mmap(NULL, sf->req_size, PROT_READ, MAP_SHARED, sf->fd, 0);
-    break;
-  case SF_READ_WRITE:
-    sf->fd = open(file_name, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IROTH | S_IRGRP);
-    sf->data = (unsigned char*)mmap(NULL, sf->req_size, PROT_READ | PROT_WRITE,
-                                    MAP_SHARED, sf->fd, 0);
-    break;
-  default:
-    fprintf(stderr, "error: unknown seg_file_mode: %d", sfm);
-    exit(2);
+    if (errno == ENOENT)
+    {
+      errno = 0;
+      sf->size = 0;
+    }
+    else
+    {
+      sf->size = file_info.st_size;
+    }
+    sf->req_size = req_size == 0 ? sf->size : req_size;
+    sf->blk_size = blk_size;
+
+    switch (sfm)
+    {
+    case SF_READ:
+      sf->fd = open(file_name, O_RDONLY);
+      sf->data =
+          (unsigned char*)mmap(NULL, sf->req_size, PROT_READ, MAP_SHARED, sf->fd, 0);
+      break;
+    case SF_READ_WRITE:
+      sf->fd = open(file_name, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IROTH | S_IRGRP);
+      sf->data = (unsigned char*)mmap(NULL, sf->req_size, PROT_READ | PROT_WRITE,
+                                      MAP_SHARED, sf->fd, 0);
+      break;
+    default:
+      fprintf(stderr, "error: unknown seg_file_mode: %d", sfm);
+      exit(2);
+    }
+    return errno == 0 ? 0 : -1;
+  }
+  else
+  {
+    return -1;
   }
 }
 
@@ -65,7 +114,7 @@ Block sf_get_blk(Seg_File* sf, size_t no)
 
   if (sf_nb_blk(sf) - 1 == no)
   {
-    b.blk_size = (sf->req_size) % sf->blk_size;
+    b.blk_size = (sf->req_size) % (sf->blk_size + 1);
     //handle the case where we have to increase file size
   }
   else
@@ -87,6 +136,40 @@ Block sf_get_blk(Seg_File* sf, size_t no)
 void sf_blk_sum(Block blk, sha512_sum* sum)
 {
   SHA512(blk.data, blk.blk_size, sum->sum);
+}
+
+void sf_send_blk(Seg_File* sf, rio_t* rio, size_t no_blk)
+{
+  Block b = sf_get_blk(sf, no_blk);
+
+  Rio_writen(rio->rio_fd, b.data, b.blk_size);
+}
+
+void sf_send_blk_sum(Seg_File* sf, rio_t* rio, size_t no_blk)
+{
+  Block b = sf_get_blk(sf, no_blk);
+
+  sha512_sum s;
+  sf_blk_sum(b, &s);
+  Rio_writen(rio->rio_fd, s.sum, sizeof(s.sum));
+}
+
+bool sf_receive_blk(Seg_File* sf, rio_t* rio, size_t no_blk)
+{
+  Block b = sf_get_blk(sf, no_blk);
+
+  send_line(rio, GET_BLK);
+  send_size_t(rio, no_blk);
+
+  return Rio_readnb(rio, b.data, b.blk_size) == (ssize_t)b.blk_size;
+}
+
+bool sf_receive_blk_sum(Seg_File* sf, rio_t* rio, size_t no_blk, sha512_sum* sum)
+{
+  send_line(rio, GET_BLK_SUM);
+  send_size_t(rio, no_blk);
+
+  return Rio_readnb(rio, sum->sum, sizeof(sum->sum)) == sizeof(sum->sum);
 }
 
 void sf_destroy(Seg_File* sf)
