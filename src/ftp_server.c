@@ -7,7 +7,7 @@
 
 #define MAX_NAME_LEN 256
 #define NB_CHILDREN 8
-#define BLK_SIZE (1 << 20)
+#define BLK_SIZE (1 << 25)
 
 void chld_handler(int ntm)
 {

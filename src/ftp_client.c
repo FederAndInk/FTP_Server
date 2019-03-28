@@ -127,15 +127,14 @@ void get_file(rio_t* rio, char* file_name)
       size_t no = 0;
       // 5. command sequence to get the file
       // check the available blocks
-      sha512_sum s;
-      sha512_sum s_dist;
-      Block      b;
-      while (no < nb_blocks)
+      Check_Sum s;
+      Check_Sum s_dist;
+      Block     b;
+      while (no < nb_blocks && sf_receive_blk_sum(&sf, rio, no, &s_dist))
       {
-        sf_receive_blk_sum(&sf, rio, no, &s_dist);
         b = sf_get_blk(&sf, no);
         sf_blk_sum(b, &s);
-        if (!sha512_equal(&s_dist, &s))
+        if (!check_sum_equal(&s_dist, &s))
         {
           sf_receive_blk(&sf, rio, no);
         }
@@ -151,11 +150,14 @@ void get_file(rio_t* rio, char* file_name)
         remaining -= sf.blk_size;
         ++no;
       }
-      progress_bar(1.f);
+      sf_destroy(&sf);
+      if (no == nb_blocks_req)
+      {
+        progress_bar(1.f);
+        rename(file_name_part, file_name);
+      }
       printf("\n");
       // 6. end get
-
-      rename(file_name_part, file_name);
     }
     else
     {

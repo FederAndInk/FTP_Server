@@ -8,7 +8,7 @@
 
 #define MAX_SIZET_LEN 21
 
-bool sha512_equal(sha512_sum* s1, sha512_sum* s2)
+bool check_sum_equal(Check_Sum* s1, Check_Sum* s2)
 {
   size_t i = 0;
 
@@ -172,9 +172,9 @@ Block sf_get_blk(Seg_File* sf, size_t no)
   return b;
 }
 
-void sf_blk_sum(Block blk, sha512_sum* sum)
+void sf_blk_sum(Block blk, Check_Sum* sum)
 {
-  SHA512(blk.data, blk.blk_size, sum->sum);
+  SHA256(blk.data, blk.blk_size, sum->sum);
 }
 
 void sf_send_blk(Seg_File* sf, rio_t* rio, size_t no_blk)
@@ -193,7 +193,7 @@ void sf_send_blk_sum(Seg_File* sf, rio_t* rio, size_t no_blk)
 {
   Block b = sf_get_blk(sf, no_blk);
 
-  sha512_sum s;
+  Check_Sum s;
   sf_blk_sum(b, &s);
   rio_writen(rio->rio_fd, s.sum, sizeof(s.sum));
 }
@@ -208,7 +208,7 @@ bool sf_receive_blk(Seg_File* sf, rio_t* rio, size_t no_blk)
   return rio_readnb(rio, b.data, b.blk_size) == (ssize_t)b.blk_size;
 }
 
-bool sf_receive_blk_sum(Seg_File* sf, rio_t* rio, size_t no_blk, sha512_sum* sum)
+bool sf_receive_blk_sum(Seg_File* sf, rio_t* rio, size_t no_blk, Check_Sum* sum)
 {
   send_line(rio, GET_BLK_SUM);
   send_size_t(rio, no_blk);

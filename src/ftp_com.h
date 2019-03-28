@@ -26,8 +26,8 @@ typedef struct
 
 typedef struct
 {
-  unsigned char sum[SHA512_DIGEST_LENGTH];
-} sha512_sum;
+  unsigned char sum[SHA256_DIGEST_LENGTH];
+} Check_Sum;
 
 typedef enum
 {
@@ -35,7 +35,7 @@ typedef enum
   SF_READ_WRITE,
 } Seg_File_Mode;
 
-bool sha512_equal(sha512_sum* s1, sha512_sum* s2);
+bool check_sum_equal(Check_Sum* s1, Check_Sum* s2);
 
 /**
  * @brief initialize the sf structure
@@ -83,12 +83,12 @@ size_t sf_nb_blk_req(Seg_File* sf);
 Block sf_get_blk(Seg_File* sf, size_t no);
 
 /**
- * @brief compute the sha512 sum of the block blk
+ * @brief compute the checksum of the block blk
  * 
  * @param blk 
  * @param sum where the sum will be written
  */
-void sf_blk_sum(Block blk, sha512_sum* sum);
+void sf_blk_sum(Block blk, Check_Sum* sum);
 
 /**
  * @brief must be called for a corresponding sf_init
@@ -101,7 +101,7 @@ void sf_send_blk(Seg_File* sf, rio_t* rio, size_t no_blk);
 void sf_send_blk_sum(Seg_File* sf, rio_t* rio, size_t no_blk);
 
 bool sf_receive_blk(Seg_File* sf, rio_t* rio, size_t no_blk);
-bool sf_receive_blk_sum(Seg_File* sf, rio_t* rio, size_t no_blk, sha512_sum* sum);
+bool sf_receive_blk_sum(Seg_File* sf, rio_t* rio, size_t no_blk, Check_Sum* sum);
 
 /**
  * @brief receive a line whitout keeping the newline charater and replacing it with null '\0'
