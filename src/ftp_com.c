@@ -114,8 +114,11 @@ Block sf_get_blk(Seg_File* sf, size_t no)
 
   if (sf_nb_blk(sf) - 1 == no)
   {
-    b.blk_size = (sf->req_size) % (sf->blk_size + 1);
-    //handle the case where we have to increase file size
+    b.blk_size = (sf->req_size) % (sf->blk_size);
+    if (b.blk_size == 0)
+    {
+      b.blk_size = sf->blk_size;
+    }
   }
   else
   {
