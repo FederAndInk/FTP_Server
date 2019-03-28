@@ -1,4 +1,5 @@
 #include "ftp_com.h"
+#include "format.h"
 #include "utils.h"
 #include <math.h>
 #include <sys/stat.h>
@@ -6,6 +7,17 @@
 #include <unistd.h>
 
 #define MAX_SIZET_LEN 21
+
+bool sha512_equal(sha512_sum* s1, sha512_sum* s2)
+{
+  size_t i = 0;
+
+  while (i < sizeof(s1->sum) && s1->sum[i] == s2->sum[i])
+  {
+    ++i;
+  }
+  return i == sizeof(s1->sum);
+}
 
 ssize_t receive_line(rio_t* rio, char* str, size_t maxlen)
 {
@@ -122,6 +134,11 @@ int sf_init(Seg_File* sf, char const* file_name, size_t req_size, Seg_File_Mode 
 
 size_t sf_nb_blk(Seg_File* sf)
 {
+  return ceil((double)sf->size / (double)sf->blk_size);
+}
+
+size_t sf_nb_blk_req(Seg_File* sf)
+{
   return ceil((double)sf->req_size / (double)sf->blk_size);
 }
 
@@ -131,7 +148,7 @@ Block sf_get_blk(Seg_File* sf, size_t no)
 
   size_t off = no * (sf->blk_size);
 
-  if (sf_nb_blk(sf) - 1 == no)
+  if (sf_nb_blk_req(sf) - 1 == no)
   {
     b.blk_size = (sf->req_size) % (sf->blk_size);
     if (b.blk_size == 0)
@@ -166,8 +183,8 @@ void sf_send_blk(Seg_File* sf, rio_t* rio, size_t no_blk)
   ssize_t wrt = rio_writen(rio->rio_fd, b.data, b.blk_size);
   if (wrt != b.blk_size)
   {
-    printf("error sending blk no %zu (", no_blk, wrt);
-    
+    printf("error sending blk no %zu (", no_blk);
+    printf_bytes(wrt);
     printf(")\n");
   }
 }

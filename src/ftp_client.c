@@ -5,6 +5,69 @@
 #include "utils.h"
 #include <time.h>
 
+void fexist_act(char const* file_name, char opt)
+{
+  char opts[] = " \n";
+  opts[0] = opt;
+  char const* act;
+  if (opt == 'r')
+  {
+    act = "rename";
+  }
+  else if (opt == 'c')
+  {
+    act = "complete";
+  }
+  else
+  {
+    printf("fexist_act unsupported opt %c\n", opt);
+    exit(3);
+  }
+
+  if (access(file_name, F_OK) == 0)
+  {
+    printf("The file : '%s' already exists, do you want to %s(%c) or to replace(x) "
+           "it?\n",
+           file_name, act, opt);
+
+    bool correct = true;
+    do
+    {
+      size_t sz = 0;
+      char*  buf = NULL;
+      getline(&buf, &sz, stdin);
+      if (strcmp(buf, "x\n") == 0)
+      {
+        remove(file_name);
+        free(buf);
+      }
+      else if (opt == 'r' && strcmp(buf, "r\n") == 0)
+      {
+        printf("Please enter a file name:\n");
+        free(buf);
+        sz = 0;
+        buf = NULL;
+        sz = getline(&buf, &sz, stdin);
+        buf[sz - 1] = '\0';
+        rename(file_name, buf);
+        printf("renamed '%s' to '%s'\n", file_name, buf);
+        free(buf);
+      }
+      else if (opt == 'c' && strcmp(buf, "c\n") == 0)
+      {
+        free(buf);
+        // nothing to do
+      }
+      else
+      {
+        correct = false;
+        printf("please enter %c or x: ", opt);
+        free(buf);
+      }
+    } while (!correct);
+  }
+}
+
 /**
  * @brief receive file
  * Protocol:
@@ -29,12 +92,19 @@ void get_file(rio_t* rio, char* file_name)
   // 2. receive ok/err
   int err = receive_long(rio);
 
-  if (err == 0)
+  if (err == 0) // no error
   {
+    fexist_act(file_name, 'r');
+
     // 3. nb bytes of the file
     size_t size = receive_size_t(rio);
     // 4. nb bytes of a block
     size_t blk_size = receive_size_t(rio);
+
+    size_t fnpsz = strlen(file_name) + sizeof(".part");
+    char   file_name_part[fnpsz];
+    snprintf(file_name_part, fnpsz, "%s.part", file_name);
+    fexist_act(file_name_part, 'c');
 
     printf("getting %s (", file_name);
     printf_bytes(size);
@@ -42,10 +112,11 @@ void get_file(rio_t* rio, char* file_name)
 
     // file to write
     Seg_File sf;
-    if (sf_init(&sf, file_name, size, SF_READ_WRITE, blk_size) == 0)
+    if (sf_init(&sf, file_name_part, size, SF_READ_WRITE, blk_size) == 0)
     {
+      size_t nb_blocks_req = sf_nb_blk_req(&sf);
       size_t nb_blocks = sf_nb_blk(&sf);
-      printf("%zu blocks of ", nb_blocks);
+      printf("%zu blocks of ", nb_blocks_req);
       printf_bytes(sf.blk_size);
       printf("\n");
 
@@ -55,7 +126,26 @@ void get_file(rio_t* rio, char* file_name)
 
       size_t no = 0;
       // 5. command sequence to get the file
-      while (no < nb_blocks && sf_receive_blk(&sf, rio, no))
+      // check the available blocks
+      sha512_sum s;
+      sha512_sum s_dist;
+      Block      b;
+      while (no < nb_blocks)
+      {
+        sf_receive_blk_sum(&sf, rio, no, &s_dist);
+        b = sf_get_blk(&sf, no);
+        sf_blk_sum(b, &s);
+        if (!sha512_equal(&s_dist, &s))
+        {
+          sf_receive_blk(&sf, rio, no);
+        }
+        download_bar(&bDownload, size - remaining);
+        remaining -= sf.blk_size;
+        ++no;
+      }
+
+      // fetch the remaining blocks
+      while (no < nb_blocks_req && sf_receive_blk(&sf, rio, no))
       {
         download_bar(&bDownload, size - remaining);
         remaining -= sf.blk_size;
@@ -64,6 +154,8 @@ void get_file(rio_t* rio, char* file_name)
       progress_bar(1.f);
       printf("\n");
       // 6. end get
+
+      rename(file_name_part, file_name);
     }
     else
     {

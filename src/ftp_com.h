@@ -35,6 +35,8 @@ typedef enum
   SF_READ_WRITE,
 } Seg_File_Mode;
 
+bool sha512_equal(sha512_sum* s1, sha512_sum* s2);
+
 /**
  * @brief initialize the sf structure
  * 
@@ -52,7 +54,23 @@ typedef enum
 int sf_init(Seg_File* sf, char const* file_name, size_t req_size, Seg_File_Mode sfm,
             size_t blk_size);
 
+/**
+ * @brief get the current nb of blocks in the file
+ * based on req_size
+ * 
+ * @param sf the segfile
+ * @return the number of blocks contained in the file
+ */
 size_t sf_nb_blk(Seg_File* sf);
+
+/**
+ * @brief get the nb of blocks required in a file
+ * based on req_size
+ * 
+ * @param sf the segfile
+ * @return the number of blocks required 
+ */
+size_t sf_nb_blk_req(Seg_File* sf);
 
 /**
  * @brief get the block no no

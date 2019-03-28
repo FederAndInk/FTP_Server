@@ -183,7 +183,7 @@ void get_file(rio_t* rio)
 
     if (err == 0)
     {
-      size_t nb_blk = sf_nb_blk(&sf);
+      size_t nb_blk = sf_nb_blk_req(&sf);
 
       disp_serv("file found\n");
       // 2. ok
