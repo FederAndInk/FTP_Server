@@ -81,13 +81,19 @@ int sf_init(Seg_File* sf, char const* file_name, size_t req_size, Seg_File_Mode 
     {
     case SF_READ:
       sf->fd = open(file_name, O_RDONLY);
-      sf->data =
-          (unsigned char*)mmap(NULL, sf->req_size, PROT_READ, MAP_SHARED, sf->fd, 0);
+      if (sf->fd >= 0)
+      {
+        sf->data =
+            (unsigned char*)mmap(NULL, sf->req_size, PROT_READ, MAP_SHARED, sf->fd, 0);
+      }
       break;
     case SF_READ_WRITE:
       sf->fd = open(file_name, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IROTH | S_IRGRP);
-      sf->data = (unsigned char*)mmap(NULL, sf->req_size, PROT_READ | PROT_WRITE,
-                                      MAP_SHARED, sf->fd, 0);
+      if (sf->fd >= 0)
+      {
+        sf->data = (unsigned char*)mmap(NULL, sf->req_size, PROT_READ | PROT_WRITE,
+                                        MAP_SHARED, sf->fd, 0);
+      }
       break;
     default:
       fprintf(stderr, "error: unknown seg_file_mode: %d", sfm);

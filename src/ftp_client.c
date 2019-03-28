@@ -23,15 +23,13 @@
  */
 void get_file(rio_t* rio, char* file_name)
 {
-  char buf[FTP_MAX_LINE_SIZE];
-
   // 1. send file name
   send_line(rio, file_name);
 
   // 2. receive ok/err
-  receive_line(rio, buf, sizeof(buf));
+  int err = receive_long(rio);
 
-  if (strcmp(buf, FTP_OK) == 0)
+  if (err == 0)
   {
     // 3. nb bytes of the file
     size_t size = receive_size_t(rio);
@@ -75,7 +73,7 @@ void get_file(rio_t* rio, char* file_name)
   }
   else
   {
-    errno = receive_long(rio);
+    errno = err;
     perror("Can't download file");
     errno = 0;
   }

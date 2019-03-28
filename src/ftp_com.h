@@ -5,9 +5,6 @@
 #define FTP_MAX_CMD_LEN 100
 #define FTP_MAX_LINE_SIZE 8192
 
-// States
-#define FTP_OK "0"
-
 #define GET_BLK "get_blk"
 #define GET_BLK_SUM "get_blk_sum"
 #define GET_END "get_end"

@@ -171,7 +171,7 @@ void get_file(rio_t* rio)
     {
       disp_serv("file found\n");
       // 2. ok
-      send_line(rio, FTP_OK);
+      send_long(rio, 0);
 
       // handle size
 
