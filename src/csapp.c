@@ -1,5 +1,6 @@
 /* $begin csapp.c */
 #include "csapp.h"
+#include <stdbool.h>
 
 /************************** 
  * Error-handling functions
@@ -568,7 +569,7 @@ ssize_t rio_readn(int fd, void* usrbuf, size_t n)
 {
   size_t  nleft = n;
   ssize_t nread;
-  char*   bufp = (char*) usrbuf;
+  char*   bufp = (char*)usrbuf;
 
   while (nleft > 0)
   {
@@ -588,6 +589,14 @@ ssize_t rio_readn(int fd, void* usrbuf, size_t n)
 }
 /* $end rio_readn */
 
+int socket_status(int fd)
+{
+  int       error = 0;
+  socklen_t len = sizeof(error);
+  int       retval = getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &len);
+  return error;
+}
+
 /*
  * rio_writen - robustly write n bytes (unbuffered)
  */
@@ -597,8 +606,8 @@ ssize_t rio_writen(int fd, void const* usrbuf, size_t n)
   size_t      nleft = n;
   ssize_t     nwritten;
   char const* bufp = (char const*)usrbuf;
-
-  while (nleft > 0)
+  errno = 0;
+  while (nleft > 0 && socket_status(fd) == 0)
   {
     if ((nwritten = write(fd, bufp, nleft)) <= 0)
     {
@@ -607,6 +616,7 @@ ssize_t rio_writen(int fd, void const* usrbuf, size_t n)
       else
         return -1; /* errno set by write() */
     }
+
     nleft -= nwritten;
     bufp += nwritten;
   }
@@ -672,7 +682,7 @@ ssize_t rio_readnb(rio_t* rp, void* usrbuf, size_t n)
 {
   size_t  nleft = n;
   ssize_t nread;
-  char*   bufp = (char*) usrbuf;
+  char*   bufp = (char*)usrbuf;
 
   while (nleft > 0)
   {

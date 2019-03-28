@@ -148,6 +148,8 @@ void Sem_init(sem_t* sem, int pshared, unsigned int value);
 void P(sem_t* sem);
 void V(sem_t* sem);
 
+int socket_status(int fd);
+
 /* Rio (Robust I/O) package */
 ssize_t rio_readn(int fd, void* usrbuf, size_t n);
 ssize_t rio_writen(int fd, void const* usrbuf, size_t n);

@@ -9,14 +9,20 @@
 
 ssize_t receive_line(rio_t* rio, char* str, size_t maxlen)
 {
-  ssize_t n = Rio_readlineb(rio, str, maxlen - 1);
+  ssize_t n = rio_readlineb(rio, str, maxlen - 1);
   if (n > 0)
   {
     str[n - 1] = '\0';
   }
+  else if (n == 0)
+  {
+    str[0] = '\0';
+  }
   else
   {
-    str[n] = '\0';
+    str[0] = '\0';
+    // error
+    printf("error receive_live");
   }
 
   return n;
@@ -53,8 +59,15 @@ void send_long(rio_t* rio, long l)
 
 void send_line(rio_t* rio, char const* str)
 {
-  Rio_writen(rio->rio_fd, str, strlen(str));
-  Rio_writen(rio->rio_fd, "\n", 1);
+  size_t strl = strlen(str);
+  if (rio_writen(rio->rio_fd, str, strl) == strl)
+  {
+    rio_writen(rio->rio_fd, "\n", 1);
+  }
+  else
+  {
+    printf("error send line '%s'\n", str);
+  }
 }
 
 int sf_init(Seg_File* sf, char const* file_name, size_t req_size, Seg_File_Mode sfm,
@@ -149,9 +162,14 @@ void sf_blk_sum(Block blk, sha512_sum* sum)
 
 void sf_send_blk(Seg_File* sf, rio_t* rio, size_t no_blk)
 {
-  Block b = sf_get_blk(sf, no_blk);
-
-  Rio_writen(rio->rio_fd, b.data, b.blk_size);
+  Block   b = sf_get_blk(sf, no_blk);
+  ssize_t wrt = rio_writen(rio->rio_fd, b.data, b.blk_size);
+  if (wrt != b.blk_size)
+  {
+    printf("error sending blk no %zu (", no_blk, wrt);
+    
+    printf(")\n");
+  }
 }
 
 void sf_send_blk_sum(Seg_File* sf, rio_t* rio, size_t no_blk)
@@ -160,7 +178,7 @@ void sf_send_blk_sum(Seg_File* sf, rio_t* rio, size_t no_blk)
 
   sha512_sum s;
   sf_blk_sum(b, &s);
-  Rio_writen(rio->rio_fd, s.sum, sizeof(s.sum));
+  rio_writen(rio->rio_fd, s.sum, sizeof(s.sum));
 }
 
 bool sf_receive_blk(Seg_File* sf, rio_t* rio, size_t no_blk)
@@ -170,7 +188,7 @@ bool sf_receive_blk(Seg_File* sf, rio_t* rio, size_t no_blk)
   send_line(rio, GET_BLK);
   send_size_t(rio, no_blk);
 
-  return Rio_readnb(rio, b.data, b.blk_size) == (ssize_t)b.blk_size;
+  return rio_readnb(rio, b.data, b.blk_size) == (ssize_t)b.blk_size;
 }
 
 bool sf_receive_blk_sum(Seg_File* sf, rio_t* rio, size_t no_blk, sha512_sum* sum)
@@ -178,7 +196,7 @@ bool sf_receive_blk_sum(Seg_File* sf, rio_t* rio, size_t no_blk, sha512_sum* sum
   send_line(rio, GET_BLK_SUM);
   send_size_t(rio, no_blk);
 
-  return Rio_readnb(rio, sum->sum, sizeof(sum->sum)) == sizeof(sum->sum);
+  return rio_readnb(rio, sum->sum, sizeof(sum->sum)) == sizeof(sum->sum);
 }
 
 void sf_destroy(Seg_File* sf)

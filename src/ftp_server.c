@@ -9,6 +9,19 @@
 #define NB_CHILDREN 8
 #define BLK_SIZE (1 << 20)
 
+void chld_handler(int ntm)
+{
+  (void)ntm;
+
+  int   status;
+  pid_t p = waitpid(0, &status, WNOHANG);
+  if (p > 0)
+  {
+    printf("%d: exit: %d, exited: %d, signaled: %d, sig: %d\n", p, WEXITSTATUS(status),
+           WIFEXITED(status), WIFSIGNALED(status), WTERMSIG(status));
+  }
+}
+
 void get_file(rio_t* rio);
 void put_file(rio_t* rio);
 void fpt_ls(rio_t* rio);
@@ -104,6 +117,7 @@ int main()
   {
     char cmd[FTP_MAX_CMD_LEN];
     signal(SIGINT, ctrlc);
+    signal(SIGCHLD, chld_handler);
     disp_serv("OK\n");
     while (Fgets(cmd, FTP_MAX_CMD_LEN, stdin) != NULL)
     {
@@ -169,6 +183,8 @@ void get_file(rio_t* rio)
 
     if (err == 0)
     {
+      size_t nb_blk = sf_nb_blk(&sf);
+
       disp_serv("file found\n");
       // 2. ok
       send_long(rio, 0);
@@ -183,7 +199,7 @@ void get_file(rio_t* rio)
       disp_serv("size of file: %ld bytes (", sf.size);
       printf_bytes(sf.size);
       printf(")\n");
-      disp_serv("%zu blocks of %zu bytes\n", sf_nb_blk(&sf), sf.blk_size);
+      disp_serv("%zu blocks of %zu bytes\n", nb_blk, sf.blk_size);
 
       // file is ready
       // 5. waiting for client commands
@@ -192,19 +208,22 @@ void get_file(rio_t* rio)
              strcmp(buf, GET_END) != 0)
       {
         size_t no = receive_size_t(rio);
-        // disp_serv("get subcommand '%s %zu' received\n", buf, no);
+        disp_serv("get subcommand '%s %zu' received\n", buf, no);
 
-        if (strcmp(buf, GET_BLK) == 0)
+        if (no < nb_blk)
         {
-          sf_send_blk(&sf, rio, no);
-        }
-        else if (strcmp(buf, GET_BLK_SUM) == 0)
-        {
-          sf_send_blk_sum(&sf, rio, no);
-        }
-        else
-        {
-          // Unknown command !
+          if (strcmp(buf, GET_BLK) == 0)
+          {
+            sf_send_blk(&sf, rio, no);
+          }
+          else if (strcmp(buf, GET_BLK_SUM) == 0)
+          {
+            sf_send_blk_sum(&sf, rio, no);
+          }
+          else
+          {
+            // Unknown command !
+          }
         }
       }
       // 6. end
