@@ -15,9 +15,9 @@ add_compile_options(
   # -Wmissing-field-initializers
   # -Wsizeof-array-argument
   # -Wtype-limits
-  $<$<CONFIG:Debug>:-fsanitize=undefined,address>)
-add_link_options(
-  $<$<CONFIG:Debug>:-fsanitize=undefined,address>)
+  # $<$<CONFIG:Debug>:-fsanitize=undefined,address>
+  )
+# add_link_options($<$<CONFIG:Debug>:-fsanitize=undefined,address>)
 
 add_subdirectory(src)
 add_subdirectory(test)

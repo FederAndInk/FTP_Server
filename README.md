@@ -2,9 +2,21 @@
 
 Project in c to make a simple FTP client/server
 
+## Compilation
+
+mkdir build
+cd build
+cmake ..
+make
+
 Depends on:
 
 - OpenSSL
+
+## execute
+
+build/src/ftp_client
+build/src/ftp_server
 
 ## Features
 
