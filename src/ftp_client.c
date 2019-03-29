@@ -3,6 +3,8 @@
 #include "format.h"
 #include "ftp_com.h"
 #include "utils.h"
+#include <stdarg.h>
+#include <stdio.h>
 #include <time.h>
 
 void fexist_act(char const* file_name, char opt)
@@ -94,6 +96,7 @@ void get_file(rio_t* rio, char* file_name)
   snprintf(file_name_part, fnpsz, "%s.part", file_name);
   fexist_act(file_name_part, 'c');
 
+  send_line(rio, "get");
   // 1. send file name
   send_line(rio, file_name);
 
@@ -101,6 +104,23 @@ void get_file(rio_t* rio, char* file_name)
   if (receive_file(rio, file_name_part))
   {
     rename(file_name_part, file_name);
+  }
+}
+
+void put_file(rio_t* rio, char* file_name)
+{
+  if (access(file_name, F_OK) == 0)
+  {
+    send_line(rio, "put");
+
+    // 1. send file name
+    send_line(rio, file_name);
+
+    send_file(rio, file_name, BLK_SIZE);
+  }
+  else
+  {
+    printf("%s doesn't exist", file_name);
   }
 }
 
@@ -117,8 +137,11 @@ void command(rio_t* rio, char* cmd)
 
   if (strcmp(cmd, "get") == 0)
   {
-    send_line(rio, cmd);
     get_file(rio, args);
+  }
+  else if (strcmp(cmd, "put") == 0)
+  {
+    put_file(rio, args);
   }
   else if (strcmp(cmd, "help") == 0)
   {
@@ -135,8 +158,22 @@ void command(rio_t* rio, char* cmd)
   }
 }
 
+void disp_client(Log_Level ll, char const* format, ...)
+{
+  if (ll > LOG_LV_LOG)
+  {
+    va_list args;
+    va_start(args, format);
+    vprintf(format, args);
+    va_end(args);
+  }
+}
+
 int main(int argc, char** argv)
 {
+  fc_disp = disp_client;
+  fc_show_progress_bar = true;
+
   int   clientfd, port;
   char* host;
   char  cmd[FTP_MAX_CMD_LEN];

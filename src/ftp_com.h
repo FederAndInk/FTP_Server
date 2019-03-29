@@ -1,3 +1,5 @@
+#pragma once
+
 #include "csapp.h"
 #include <openssl/sha.h>
 #include <stdbool.h>
@@ -5,6 +7,7 @@
 #define FTP_MAX_CMD_LEN 100
 #define FTP_MAX_LINE_SIZE 8192
 
+#define BLK_SIZE (1 << 25)
 #define GET_BLK "get_blk"
 #define GET_BLK_SUM "get_blk_sum"
 #define GET_END "get_end"
@@ -35,8 +38,19 @@ typedef enum
   SF_READ_WRITE,
 } Seg_File_Mode;
 
-typedef void (*Disp_Fn)(char const* format, ...);
-extern Disp_Fn disp;
+typedef enum
+{
+  LOG_LV_LOG,
+  LOG_LV_INFO,
+  LOG_LV_WARNING,
+  LOG_LV_ERROR,
+} Log_Level;
+
+char const* log_level_str(Log_Level l);
+
+typedef void (*Disp_Fn)(Log_Level ll, char const* format, ...);
+extern Disp_Fn fc_disp;
+extern bool    fc_show_progress_bar;
 
 bool check_sum_equal(Check_Sum* s1, Check_Sum* s2);
 

@@ -1,7 +1,5 @@
 #include <ftp_com.h>
 
-#define BLK_SIZE 1024
-
 int main(int argc, char const* argv[])
 {
   if (argc != 2)

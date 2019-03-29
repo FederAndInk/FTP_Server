@@ -10,15 +10,39 @@
 
 #define MAX_SIZET_LEN 21
 
-void default_disp(char const* format, ...)
+char const* log_level_str(Log_Level l)
 {
+  switch (l)
+  {
+  case LOG_LV_LOG:
+    return "LOG";
+    break;
+  case LOG_LV_INFO:
+    return "INFO";
+    break;
+  case LOG_LV_WARNING:
+    return "WARNING";
+    break;
+  case LOG_LV_ERROR:
+    return "ERROR";
+    break;
+  default:
+    return "UNKNOW_LOG";
+    break;
+  }
+}
+
+void default_disp(Log_Level ll, char const* format, ...)
+{
+  printf("[%s]: ", log_level_str(ll));
   va_list args;
   va_start(args, format);
   vprintf(format, args);
   va_end(args);
 }
 
-Disp_Fn disp = default_disp;
+Disp_Fn fc_disp = default_disp;
+bool    fc_show_progress_bar = false;
 
 bool check_sum_equal(Check_Sum* s1, Check_Sum* s2)
 {
@@ -76,6 +100,8 @@ long receive_long(rio_t* rio)
 
 bool receive_file(rio_t* rio, char const* file_name)
 {
+  bool ret = false;
+
   // 2. receive ok/err
   int err = receive_long(rio);
 
@@ -119,7 +145,11 @@ bool receive_file(rio_t* rio, char const* file_name)
         {
           sf_receive_blk(&sf, rio, no);
         }
-        download_bar(&bDownload, size - remaining);
+        if (fc_show_progress_bar)
+        {
+          download_bar(&bDownload, size - remaining);
+        }
+
         remaining -= b.blk_size;
         ++no;
       }
@@ -129,16 +159,22 @@ bool receive_file(rio_t* rio, char const* file_name)
       {
         b = sf_get_blk(&sf, no);
 
-        download_bar(&bDownload, size - remaining);
+        if (fc_show_progress_bar)
+        {
+
+          download_bar(&bDownload, size - remaining);
+        }
         remaining -= b.blk_size;
         ++no;
       }
       sf_destroy(&sf);
       if (no == nb_blocks_req)
       {
-        progress_bar(1.f);
-        printf("\n");
-        return true;
+        if (fc_show_progress_bar)
+        {
+          progress_bar(1.f);
+        }
+        ret = true;
       }
       printf("\n");
       // 6. end get
@@ -156,7 +192,7 @@ bool receive_file(rio_t* rio, char const* file_name)
     errno = 0;
   }
 
-  return false;
+  return ret;
 }
 
 bool receive_exec_command(rio_t* rio, char* res, size_t len)
@@ -197,7 +233,7 @@ bool send_file(rio_t* rio, char const* fn, size_t blk_size)
     char   buf[FTP_MAX_LINE_SIZE];
     size_t nb_blk = sf_nb_blk_req(&sf);
 
-    disp("file found\n");
+    fc_disp(LOG_LV_LOG, "file found\n");
     // 2. ok
     send_long(rio, 0);
 
@@ -208,10 +244,10 @@ bool send_file(rio_t* rio, char const* fn, size_t blk_size)
     // 4. blk size
     send_size_t(rio, sf.blk_size);
 
-    disp("size of file: %ld bytes (", sf.size);
+    fc_disp(LOG_LV_INFO, "size of file: %ld bytes (", sf.size);
     printf_bytes(sf.size);
     printf(")\n");
-    disp("%zu blocks of %zu bytes\n", nb_blk, sf.blk_size);
+    fc_disp(LOG_LV_INFO, "%zu blocks of %zu bytes\n", nb_blk, sf.blk_size);
 
     // file is ready
     // 5. waiting for client commands
@@ -220,7 +256,7 @@ bool send_file(rio_t* rio, char const* fn, size_t blk_size)
            strcmp(buf, GET_END) != 0)
     {
       size_t no = receive_size_t(rio);
-      disp("get subcommand '%s %zu' received\n", buf, no);
+      fc_disp(LOG_LV_LOG, "get subcommand '%s %zu' received\n", buf, no);
 
       if (no < nb_blk)
       {

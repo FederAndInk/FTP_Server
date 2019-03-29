@@ -17,11 +17,11 @@ Depends on:
 - [X] crash client handling (resume download)
 - [ ] load balancer (multiple server)
 - [X] persistant connection
+- [X] put file
 - [ ] ls
 - [ ] pwd
 - [ ] cd (limited to the ftp server root)
 - [ ] mkdir
 - [ ] rm
 - [ ] rm -r
-- [ ] put
 - [ ] authentication

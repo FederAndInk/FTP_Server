@@ -7,7 +7,6 @@
 
 #define MAX_NAME_LEN 256
 #define NB_CHILDREN 8
-#define BLK_SIZE (1 << 25)
 
 void chld_handler(int ntm)
 {
@@ -51,15 +50,15 @@ void ctrlc(int ntm)
  * @brief print header of server (no child)
  * 
  */
-void disp_serv(char const* format, ...)
+void disp_serv(Log_Level ll, char const* format, ...)
 {
   if (serv_no == -1)
   {
-    printf("[Server] ");
+    printf("[%s:Server] ", log_level_str(ll));
   }
   else
   {
-    printf("[Server no: %d] ", serv_no);
+    printf("[%s:Server no: %d] ", log_level_str(ll), serv_no);
   }
 
   va_list args;
@@ -75,10 +74,14 @@ void command(rio_t* rio)
   // reads the client's command
   while (receive_line(rio, cmd, FTP_MAX_CMD_LEN) > 0 && strcmp(cmd, "bye") != 0)
   {
-    disp_serv("command '%s' received\n", cmd);
+    disp_serv(LOG_LV_LOG, "command '%s' received\n", cmd);
     if (strcmp(cmd, "get") == 0)
     {
       get_file(rio);
+    }
+    else if (strcmp(cmd, "put") == 0)
+    {
+      put_file(rio);
     }
   }
 }
@@ -89,8 +92,9 @@ void command(rio_t* rio)
  */
 int main()
 {
-  // init disp in ftp_com
-  disp = disp_serv;
+  // init fc_disp in ftp_com
+  fc_disp = disp_serv;
+  fc_show_progress_bar = false;
 
   int                listenfd;
   int                connfd;
@@ -121,7 +125,7 @@ int main()
     char cmd[FTP_MAX_CMD_LEN];
     signal(SIGINT, ctrlc);
     signal(SIGCHLD, chld_handler);
-    disp_serv("OK\n");
+    disp_serv(LOG_LV_INFO, "OK\n");
     while (Fgets(cmd, FTP_MAX_CMD_LEN, stdin) != NULL)
     {
       cmd[strlen(cmd) - 1] = '\0';
@@ -135,7 +139,7 @@ int main()
   }
   else
   {
-    disp_serv("actif\n");
+    disp_serv(LOG_LV_INFO, "actif\n");
     rio_t rio;
     while (1)
     {
@@ -148,11 +152,12 @@ int main()
       /* determine the textual representation of the client's IP address */
       Inet_ntop(AF_INET, &clientaddr.sin_addr, client_ip_string, INET_ADDRSTRLEN);
 
-      disp_serv("server connected to %s (%s)\n", client_hostname, client_ip_string);
+      disp_serv(LOG_LV_INFO, "server connected to %s (%s)\n", client_hostname,
+                client_ip_string);
 
       command(&rio);
       Close(connfd);
-      disp_serv("actif\n");
+      disp_serv(LOG_LV_INFO, "actif\n");
     }
   }
 }
@@ -180,7 +185,20 @@ void get_file(rio_t* rio)
   // 1. receive file name
   if ((n = receive_line(rio, buf, FTP_MAX_LINE_SIZE)) != 0)
   {
-    disp_serv("Asked for: '%s'\n", buf);
+    disp_serv(LOG_LV_INFO, "Asked for: '%s'\n", buf);
     send_file(rio, buf, BLK_SIZE);
+  }
+}
+
+void put_file(rio_t* rio)
+{
+  size_t n;
+  char   buf[FTP_MAX_LINE_SIZE];
+
+  // 1. receive file name
+  if ((n = receive_line(rio, buf, FTP_MAX_LINE_SIZE)) != 0)
+  {
+    disp_serv(LOG_LV_INFO, "Asked for: '%s'\n", buf);
+    receive_file(rio, buf);
   }
 }

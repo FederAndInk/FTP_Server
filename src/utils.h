@@ -1,4 +1,4 @@
-
+#pragma once
 
 /**
  * @brief cut str to the first occurence of c (write a '\0' over c)

@@ -6,6 +6,7 @@ add_compile_options(
   -Wall
   -Wextra
   -Werror=int-to-pointer-cast
+  -Werror=incompatible-pointer-types
   -Werror=pointer-to-int-cast
   -Werror=int-conversion
   -Warray-bounds
