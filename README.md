@@ -18,10 +18,12 @@ Depends on:
 - [ ] load balancer (multiple server)
 - [X] persistant connection
 - [X] put file
+- [ ] lock file on transfert (for other get/put)
 - [ ] ls
 - [ ] pwd
-- [ ] cd (limited to the ftp server root)
+- [ ] cd
 - [ ] mkdir
 - [ ] rm
 - [ ] rm -r
+- [ ] cd (limited to the ftp server root)
 - [ ] authentication

@@ -143,6 +143,17 @@ void command(rio_t* rio, char* cmd)
   {
     put_file(rio, args);
   }
+  // else if (strcmp(cmd, "cd") == 0 || strcmp(cmd, "rm") == 0 || strcmp(cmd, "pwd") == 0 ||
+  //          strcmp(cmd, "mkdir") == 0)
+  // {
+  //   send_line(rio, cmd);
+  //   send_line(rio, args);
+
+  // }
+  // else if (strcmp(cmd, "ls") == 0)
+  // {
+
+  // }
   else if (strcmp(cmd, "help") == 0)
   {
     help();
