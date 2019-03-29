@@ -1,12 +1,24 @@
 #include "ftp_com.h"
+#include "UI.h"
 #include "format.h"
 #include "utils.h"
 #include <math.h>
+#include <stdarg.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #define MAX_SIZET_LEN 21
+
+void default_disp(char const* format, ...)
+{
+  va_list args;
+  va_start(args, format);
+  vprintf(format, args);
+  va_end(args);
+}
+
+Disp_Fn disp = default_disp;
 
 bool check_sum_equal(Check_Sum* s1, Check_Sum* s2)
 {
@@ -62,6 +74,97 @@ long receive_long(rio_t* rio)
   return strtol(buf, NULL, 10);
 }
 
+bool receive_file(rio_t* rio, char const* file_name)
+{
+  // 2. receive ok/err
+  int err = receive_long(rio);
+
+  if (err == 0) // no error
+  {
+
+    // 3. nb bytes of the file
+    size_t size = receive_size_t(rio);
+    // 4. nb bytes of a block
+    size_t blk_size = receive_size_t(rio);
+
+    printf("writting %s (", file_name);
+    printf_bytes(size);
+    printf(")\n");
+
+    // file to write
+    Seg_File sf;
+    if (sf_init(&sf, file_name, size, SF_READ_WRITE, blk_size) == 0)
+    {
+      size_t nb_blocks_req = sf_nb_blk_req(&sf);
+      size_t nb_blocks = sf_nb_blk(&sf);
+      printf("%zu blocks of ", nb_blocks_req);
+      printf_bytes(sf.blk_size);
+      printf("\n");
+
+      long remaining = size;
+      Bar  bDownload;
+      init_bar(&bDownload, size);
+
+      size_t no = 0;
+      // 5. command sequence to get the file
+      // check the available blocks
+      Check_Sum s;
+      Check_Sum s_dist;
+      Block     b;
+      while (no < nb_blocks && sf_receive_blk_sum(&sf, rio, no, &s_dist))
+      {
+        b = sf_get_blk(&sf, no);
+        sf_blk_sum(b, &s);
+        if (!check_sum_equal(&s_dist, &s))
+        {
+          sf_receive_blk(&sf, rio, no);
+        }
+        download_bar(&bDownload, size - remaining);
+        remaining -= b.blk_size;
+        ++no;
+      }
+
+      // fetch the remaining blocks
+      while (no < nb_blocks_req && sf_receive_blk(&sf, rio, no))
+      {
+        b = sf_get_blk(&sf, no);
+
+        download_bar(&bDownload, size - remaining);
+        remaining -= b.blk_size;
+        ++no;
+      }
+      sf_destroy(&sf);
+      if (no == nb_blocks_req)
+      {
+        progress_bar(1.f);
+        printf("\n");
+        return true;
+      }
+      printf("\n");
+      // 6. end get
+    }
+    else
+    {
+      perror("error opening file");
+    }
+    send_line(rio, GET_END);
+  }
+  else
+  {
+    errno = err;
+    perror("Can't download file");
+    errno = 0;
+  }
+
+  return false;
+}
+
+bool receive_exec_command(rio_t* rio, char* res, size_t len)
+{
+  receive_line(rio, res, len);
+  return res[0] != '\x04';
+}
+
 void send_long(rio_t* rio, long l)
 {
   char buf[MAX_SIZET_LEN] = {0};
@@ -80,6 +183,86 @@ void send_line(rio_t* rio, char const* str)
   {
     printf("error send line '%s'\n", str);
   }
+}
+
+bool send_file(rio_t* rio, char const* fn, size_t blk_size)
+{
+  size_t n;
+
+  Seg_File sf;
+  int      err = sf_init(&sf, fn, 0, SF_READ, blk_size);
+
+  if (err == 0)
+  {
+    char   buf[FTP_MAX_LINE_SIZE];
+    size_t nb_blk = sf_nb_blk_req(&sf);
+
+    disp("file found\n");
+    // 2. ok
+    send_long(rio, 0);
+
+    // handle size
+
+    // 3. file size
+    send_size_t(rio, sf.size);
+    // 4. blk size
+    send_size_t(rio, sf.blk_size);
+
+    disp("size of file: %ld bytes (", sf.size);
+    printf_bytes(sf.size);
+    printf(")\n");
+    disp("%zu blocks of %zu bytes\n", nb_blk, sf.blk_size);
+
+    // file is ready
+    // 5. waiting for client commands
+
+    while ((n = receive_line(rio, buf, FTP_MAX_LINE_SIZE)) != 0 &&
+           strcmp(buf, GET_END) != 0)
+    {
+      size_t no = receive_size_t(rio);
+      disp("get subcommand '%s %zu' received\n", buf, no);
+
+      if (no < nb_blk)
+      {
+        if (strcmp(buf, GET_BLK) == 0)
+        {
+          sf_send_blk(&sf, rio, no);
+        }
+        else if (strcmp(buf, GET_BLK_SUM) == 0)
+        {
+          sf_send_blk_sum(&sf, rio, no);
+        }
+        else
+        {
+          // Unknown command !
+        }
+      }
+    }
+    // 6. end
+
+    sf_destroy(&sf);
+    return true;
+  }
+  else
+  {
+    // 2. err
+    perror("get error");
+    send_long(rio, errno);
+    errno = 0;
+    return false;
+  }
+}
+
+void send_exec_command(rio_t* rio, char const* com)
+{
+  char  buf[FTP_MAX_LINE_SIZE];
+  FILE* res = popen(com, "r");
+  while (fgets(buf, FTP_MAX_LINE_SIZE, res) != NULL)
+  {
+    send_line(rio, buf);
+  }
+
+  send_line(rio, "\x04");
 }
 
 int sf_init(Seg_File* sf, char const* file_name, size_t req_size, Seg_File_Mode sfm,

@@ -35,6 +35,9 @@ typedef enum
   SF_READ_WRITE,
 } Seg_File_Mode;
 
+typedef void (*Disp_Fn)(char const* format, ...);
+extern Disp_Fn disp;
+
 bool check_sum_equal(Check_Sum* s1, Check_Sum* s2);
 
 /**
@@ -116,6 +119,36 @@ size_t receive_size_t(rio_t* rio);
 long   receive_long(rio_t* rio);
 
 /**
+ * @brief 
+ * protocol:
+ * 2. receive ok/err (if file is ready)
+ * 3. receive file size
+ * 4. receive blk size
+ * 5. send commands 
+ *   (depending on what we already have and what the user want):
+ *   - get_blk \n no
+ *   - get_blk_sum \n no
+ * 6. send "get_end" end receiving file
+ * 
+ * @param rio 
+ * @param file_name 
+ * @return true if file have been received successfully
+ * @return false otherwise
+ */
+bool receive_file(rio_t* rio, char const* file_name);
+
+/**
+ * @brief receive result of command
+ * 
+ * 
+ * @param rio 
+ * @param com 
+ * @return true while result is not finished
+ * @return false when end command result is received
+ */
+bool receive_exec_command(rio_t* rio, char* res, size_t len);
+
+/**
  * @brief send str adding '\n' at the end
  * 
  * @param rio 
@@ -126,3 +159,24 @@ void send_line(rio_t* rio, char const* str);
 
 void send_size_t(rio_t* rio, size_t s);
 void send_long(rio_t* rio, long l);
+
+/**
+ * @brief 
+ * Protocol: 
+ * 2. send ok/err (if file is ready)
+ * 3. send file size
+ * 4. send blk size
+ * 5. wait for commands:
+ *   - get_blk \n no
+ *   - get_blk_sum \n no
+ * 6. receiving "get_end" end sending file
+ * 
+ * @param rio 
+ * @param fn 
+ * @param blk_size 
+ * @return true if file have been sent successfully
+ * @return false otherwise
+ */
+bool send_file(rio_t* rio, char const* fn, size_t blk_size);
+
+void send_exec_command(rio_t* rio, char const* com);

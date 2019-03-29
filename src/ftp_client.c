@@ -7,8 +7,8 @@
 
 void fexist_act(char const* file_name, char opt)
 {
-  char opts[] = " \n";
-  opts[0] = opt;
+  // char opts[] = " \n";
+  // opts[0] = opt;
   char const* act;
   if (opt == 'r')
   {
@@ -86,90 +86,21 @@ void fexist_act(char const* file_name, char opt)
  */
 void get_file(rio_t* rio, char* file_name)
 {
+  // handle existing file/file.part
+  fexist_act(file_name, 'r');
+
+  size_t fnpsz = strlen(file_name) + sizeof(".part");
+  char   file_name_part[fnpsz];
+  snprintf(file_name_part, fnpsz, "%s.part", file_name);
+  fexist_act(file_name_part, 'c');
+
   // 1. send file name
   send_line(rio, file_name);
 
-  // 2. receive ok/err
-  int err = receive_long(rio);
-
-  if (err == 0) // no error
+  printf("getting %s\n", file_name);
+  if (receive_file(rio, file_name_part))
   {
-    fexist_act(file_name, 'r');
-
-    // 3. nb bytes of the file
-    size_t size = receive_size_t(rio);
-    // 4. nb bytes of a block
-    size_t blk_size = receive_size_t(rio);
-
-    size_t fnpsz = strlen(file_name) + sizeof(".part");
-    char   file_name_part[fnpsz];
-    snprintf(file_name_part, fnpsz, "%s.part", file_name);
-    fexist_act(file_name_part, 'c');
-
-    printf("getting %s (", file_name);
-    printf_bytes(size);
-    printf(")\n");
-
-    // file to write
-    Seg_File sf;
-    if (sf_init(&sf, file_name_part, size, SF_READ_WRITE, blk_size) == 0)
-    {
-      size_t nb_blocks_req = sf_nb_blk_req(&sf);
-      size_t nb_blocks = sf_nb_blk(&sf);
-      printf("%zu blocks of ", nb_blocks_req);
-      printf_bytes(sf.blk_size);
-      printf("\n");
-
-      long remaining = size;
-      Bar  bDownload;
-      init_bar(&bDownload, size);
-
-      size_t no = 0;
-      // 5. command sequence to get the file
-      // check the available blocks
-      Check_Sum s;
-      Check_Sum s_dist;
-      Block     b;
-      while (no < nb_blocks && sf_receive_blk_sum(&sf, rio, no, &s_dist))
-      {
-        b = sf_get_blk(&sf, no);
-        sf_blk_sum(b, &s);
-        if (!check_sum_equal(&s_dist, &s))
-        {
-          sf_receive_blk(&sf, rio, no);
-        }
-        download_bar(&bDownload, size - remaining);
-        remaining -= sf.blk_size;
-        ++no;
-      }
-
-      // fetch the remaining blocks
-      while (no < nb_blocks_req && sf_receive_blk(&sf, rio, no))
-      {
-        download_bar(&bDownload, size - remaining);
-        remaining -= sf.blk_size;
-        ++no;
-      }
-      sf_destroy(&sf);
-      if (no == nb_blocks_req)
-      {
-        progress_bar(1.f);
-        rename(file_name_part, file_name);
-      }
-      printf("\n");
-      // 6. end get
-    }
-    else
-    {
-      perror("error opening file");
-    }
-    send_line(rio, GET_END);
-  }
-  else
-  {
-    errno = err;
-    perror("Can't download file");
-    errno = 0;
+    rename(file_name_part, file_name);
   }
 }
 

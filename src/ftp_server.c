@@ -89,6 +89,9 @@ void command(rio_t* rio)
  */
 int main()
 {
+  // init disp in ftp_com
+  disp = disp_serv;
+
   int                listenfd;
   int                connfd;
   int                port;
@@ -178,64 +181,6 @@ void get_file(rio_t* rio)
   if ((n = receive_line(rio, buf, FTP_MAX_LINE_SIZE)) != 0)
   {
     disp_serv("Asked for: '%s'\n", buf);
-    Seg_File sf;
-    int      err = sf_init(&sf, buf, 0, SF_READ, BLK_SIZE);
-
-    if (err == 0)
-    {
-      size_t nb_blk = sf_nb_blk_req(&sf);
-
-      disp_serv("file found\n");
-      // 2. ok
-      send_long(rio, 0);
-
-      // handle size
-
-      // 3. file size
-      send_size_t(rio, sf.size);
-      // 4. blk size
-      send_size_t(rio, sf.blk_size);
-
-      disp_serv("size of file: %ld bytes (", sf.size);
-      printf_bytes(sf.size);
-      printf(")\n");
-      disp_serv("%zu blocks of %zu bytes\n", nb_blk, sf.blk_size);
-
-      // file is ready
-      // 5. waiting for client commands
-
-      while ((n = receive_line(rio, buf, FTP_MAX_LINE_SIZE)) != 0 &&
-             strcmp(buf, GET_END) != 0)
-      {
-        size_t no = receive_size_t(rio);
-        disp_serv("get subcommand '%s %zu' received\n", buf, no);
-
-        if (no < nb_blk)
-        {
-          if (strcmp(buf, GET_BLK) == 0)
-          {
-            sf_send_blk(&sf, rio, no);
-          }
-          else if (strcmp(buf, GET_BLK_SUM) == 0)
-          {
-            sf_send_blk_sum(&sf, rio, no);
-          }
-          else
-          {
-            // Unknown command !
-          }
-        }
-      }
-      // 6. end
-
-      sf_destroy(&sf);
-    }
-    else
-    {
-      // 2. err
-      perror("get error");
-      send_long(rio, errno);
-      errno = 0;
-    }
+    send_file(rio, buf, BLK_SIZE);
   }
 }
