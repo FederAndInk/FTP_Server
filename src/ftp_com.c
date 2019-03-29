@@ -251,6 +251,8 @@ bool send_file(rio_t* rio, char const* fn, size_t blk_size)
 
     // file is ready
     // 5. waiting for client commands
+    Bar bDownload;
+    init_bar(&bDownload, nb_blk);
 
     while ((n = receive_line(rio, buf, FTP_MAX_LINE_SIZE)) != 0 &&
            strcmp(buf, GET_END) != 0)
@@ -260,6 +262,10 @@ bool send_file(rio_t* rio, char const* fn, size_t blk_size)
 
       if (no < nb_blk)
       {
+        if (fc_show_progress_bar)
+        {
+          download_bar(&bDownload, no);
+        }
         if (strcmp(buf, GET_BLK) == 0)
         {
           sf_send_blk(&sf, rio, no);
@@ -273,6 +279,11 @@ bool send_file(rio_t* rio, char const* fn, size_t blk_size)
           // Unknown command !
         }
       }
+    }
+    if (fc_show_progress_bar)
+    {
+      progress_bar(1.f);
+      printf("\n");
     }
     // 6. end
 
